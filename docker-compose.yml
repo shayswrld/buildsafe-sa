@@ -1,0 +1,20 @@
+services:
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: buildsafe-sa
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      - DATABASE_URL=file:./dev.db
+      - NEXT_PUBLIC_APP_NAME=BuildSafe SA
+      - HURU_API_KEY=${HURU_API_KEY:-}
+      - TRADESAFE_CLIENT_ID=${TRADESAFE_CLIENT_ID:-}
+      - TRADESAFE_CLIENT_SECRET=${TRADESAFE_CLIENT_SECRET:-}
+    volumes:
+      - sqlite_data:/app/prisma
+
+volumes:
+  sqlite_data:

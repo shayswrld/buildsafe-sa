@@ -1,0 +1,235 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model PlatformConfig {
+  id                        String   @id @default("default")
+  platformName              String   @default("BuildSafe SA")
+  buyerTrustFeePct          Float    @default(0.05)
+  workerLabourCommissionPct Float    @default(0.08)
+  repeatClientCommissionPct Float    @default(0.04)
+  sapsVettingFeeZar         Float    @default(200)
+  defaultCallOutZar         Float    @default(250)
+  updatedAt                 DateTime @updatedAt
+}
+
+model User {
+  id          String   @id @default(cuid())
+  name        String
+  phone       String   @unique
+  email       String?
+  role        String   // HOMEOWNER | WORKER | ADMIN
+  suburb      String
+  city        String
+  avatarUrl   String?
+  ratingAvg   Float    @default(5.0)
+  ratingCount Int      @default(0)
+  createdAt   DateTime @default(now())
+
+  workerProfile   WorkerProfile?
+  postedJobs      Job[]           @relation("HomeownerJobs")
+  sentMessages    ChatMessage[]
+  reviewsGiven    Review[]        @relation("ReviewsGiven")
+  reviewsReceived Review[]        @relation("ReviewsReceived")
+}
+
+model WorkerProfile {
+  id                 String    @id @default(cuid())
+  userId             String    @unique
+  vettingTier        String    @default("TIER_1_BROWSE_ONLY") // TIER_1_BROWSE_ONLY | TIER_2_SAPS_CLEARED | TIER_3_COC_CERTIFIED | SUSPENDED
+  saIdMasked         String
+  saIdHash           String
+  citizenshipStatus  String    @default("SA_CITIZEN")
+  selfieVerified     Boolean   @default(false)
+  selfieVerifiedAt   DateTime?
+  popiaConsentSigned Boolean   @default(false)
+  popiaConsentAt     DateTime?
+  huruVoucherCode    String?
+  huruFeePaid        Boolean   @default(false)
+  sapsStatus         String    @default("UNSTARTED") // UNSTARTED | PENDING_FINGERPRINTS | CLEARED | FLAGGED_RECORD
+  sapsCertificateRef String?
+  sapsClearedAt      DateTime?
+  tradesJson         String    @default("[]")
+  nearestHardwareHub String
+  yearsExperience    Int       @default(3)
+  bio                String    @default("")
+  walletBalanceZar   Float     @default(0)
+  totalPaidOutZar    Float     @default(0)
+  completedJobsCount Int       @default(0)
+  createdAt          DateTime  @default(now())
+
+  user            User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
+  certifications  TradeCertification[]
+  quotes          Quote[]
+  selectedForJobs Job[]                @relation("SelectedWorkerJobs")
+  leadGateVisits  GateVisit[]          @relation("LeadWorkerVisits")
+  crewAssignments GateCrewMember[]
+}
+
+model TradeCertification {
+  id                 String    @id @default(cuid())
+  workerProfileId    String
+  body               String    // PIRB | ECB_WIREMAN | NHBRC | SAQCC_GAS
+  registrationNumber String
+  tradeCategory      String    // PLUMBING | ELECTRICAL | BUILDING | GAS
+  status             String    @default("PENDING") // PENDING | VERIFIED | REJECTED
+  verifiedAt         DateTime?
+  notes              String?
+  createdAt          DateTime  @default(now())
+
+  workerProfile WorkerProfile @relation(fields: [workerProfileId], references: [id], onDelete: Cascade)
+}
+
+model Job {
+  id                      String   @id @default(cuid())
+  homeownerId             String
+  selectedWorkerProfileId String?
+  title                   String
+  category                String   // PLUMBING | ELECTRICAL | PAINTING | TILING | BUILDING | CARPENTRY | WATERPROOFING
+  problemTagsJson         String   @default("[]")
+  description             String
+  suburb                  String
+  city                    String
+  streetAddressEncrypted  String
+  urgency                 String   @default("THIS_WEEK") // EMERGENCY_TODAY | THIS_WEEK | FLEXIBLE_RENOVATION
+  requiresCoC             Boolean  @default(false)
+  callOutDepositZar       Float    @default(250)
+  budgetEstimateZar       Float?
+  photoUrlsJson           String   @default("[]")
+  status                  String   @default("OPEN") // OPEN | QUOTED | ESCROW_FUNDED | WORKER_ON_SITE | WORK_SUBMITTED | COMPLETED | DISPUTED
+  isRepeatBooking         Boolean  @default(false)
+  createdAt               DateTime @default(now())
+  updatedAt               DateTime @updatedAt
+
+  homeowner             User           @relation("HomeownerJobs", fields: [homeownerId], references: [id])
+  selectedWorkerProfile WorkerProfile? @relation("SelectedWorkerJobs", fields: [selectedWorkerProfileId], references: [id])
+  quotes                Quote[]
+  milestones            Milestone[]
+  gateVisits            GateVisit[]
+  messages              ChatMessage[]
+  reviews               Review[]
+}
+
+model Quote {
+  id                    String   @id @default(cuid())
+  jobId                 String
+  workerProfileId       String
+  labourAmountZar       Float
+  materialsEstimateZar  Float    @default(0)
+  estimatedDays         Int      @default(1)
+  scopeSummary          String
+  includesCallOutCredit Boolean  @default(true)
+  proposedCrewIdsJson   String   @default("[]")
+  status                String   @default("PENDING") // PENDING | ACCEPTED | DECLINED
+  createdAt             DateTime @default(now())
+
+  job           Job           @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  workerProfile WorkerProfile @relation(fields: [workerProfileId], references: [id], onDelete: Cascade)
+}
+
+model Milestone {
+  id                 String   @id @default(cuid())
+  jobId              String
+  sequence           Int
+  kind               String   // CALL_OUT_DEPOSIT | MAIN_WORK | VARIATION_ORDER
+  title              String
+  description        String
+  labourAmountZar    Float
+  materialsAmountZar Float    @default(0)
+  materialReceiptRef String?
+  status             String   @default("AWAITING_FUNDING") // AWAITING_FUNDING | HELD_IN_ESCROW | WORK_SUBMITTED | RELEASED | DISPUTED | REFUNDED
+  createdAt          DateTime @default(now())
+
+  job               Job                @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  escrowTransaction EscrowTransaction?
+}
+
+model EscrowTransaction {
+  id                  String    @id @default(cuid())
+  milestoneId         String    @unique
+  paymentMethod       String    // OZOW_INSTANT_EFT | CARD_3DS | CAPITEC_PAY
+  providerRef         String
+  labourZar           Float
+  materialsZar        Float
+  buyerTrustFeeZar    Float
+  grossBuyerPaidZar   Float
+  workerCommissionZar Float
+  platformTotalCutZar Float
+  workerNetPayoutZar  Float
+  status              String    @default("HELD") // HELD | RELEASED | DISPUTED | REFUNDED
+  fundedAt            DateTime  @default(now())
+  releasedAt          DateTime?
+  disputeReason       String?
+  resolutionNote      String?
+
+  milestone Milestone @relation(fields: [milestoneId], references: [id], onDelete: Cascade)
+}
+
+model GateVisit {
+  id                  String    @id @default(cuid())
+  jobId               String
+  leadWorkerProfileId String
+  checkInCode         String
+  checkInCodeHash     String
+  checkOutCode        String
+  status              String    @default("AWAITING_ARRIVAL") // AWAITING_ARRIVAL | VERIFIED_ON_SITE | CHECKED_OUT | SAFETY_INCIDENT_FLAGGED
+  faceMatchConfirmed  Boolean   @default(false)
+  crewMatchConfirmed  Boolean   @default(false)
+  arrivedAt           DateTime?
+  departedAt          DateTime?
+  incidentReport      String?
+  createdAt           DateTime  @default(now())
+
+  job               Job              @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  leadWorkerProfile WorkerProfile    @relation("LeadWorkerVisits", fields: [leadWorkerProfileId], references: [id])
+  crewMembers       GateCrewMember[]
+}
+
+model GateCrewMember {
+  id              String  @id @default(cuid())
+  gateVisitId     String
+  workerProfileId String
+  roleOnSite      String  @default("Vetted Site Assistant")
+  verifiedAtGate  Boolean @default(false)
+
+  gateVisit     GateVisit     @relation(fields: [gateVisitId], references: [id], onDelete: Cascade)
+  workerProfile WorkerProfile @relation(fields: [workerProfileId], references: [id])
+}
+
+model ChatMessage {
+  id                   String   @id @default(cuid())
+  jobId                String
+  senderId             String
+  body                 String
+  wasRedacted          Boolean  @default(false)
+  redactionReasonsJson String   @default("[]")
+  createdAt            DateTime @default(now())
+
+  job    Job  @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  sender User @relation(fields: [senderId], references: [id])
+}
+
+model Review {
+  id                        String   @id @default(cuid())
+  jobId                     String
+  reviewerId                String
+  revieweeId                String
+  direction                 String   // HOMEOWNER_TO_WORKER | WORKER_TO_HOMEOWNER
+  overallRating             Int
+  qualityOrClarityScore     Int
+  punctualityOrPaymentScore Int
+  safetyRespectScore        Int
+  comment                   String
+  createdAt                 DateTime @default(now())
+
+  job      Job  @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  reviewer User @relation("ReviewsGiven", fields: [reviewerId], references: [id])
+  reviewee User @relation("ReviewsReceived", fields: [revieweeId], references: [id])
+
+  @@unique([jobId, reviewerId])
+}
