@@ -1,8 +1,19 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 
-export async function GET() {
+export async function GET(req: NextRequest) {
+  let homeownerId: string | null = null;
+  if (req && req.url) {
+    try {
+      const url = new URL(req.url);
+      homeownerId = url.searchParams.get("homeownerId");
+    } catch {
+      // fallback
+    }
+  }
+
   const jobs = await prisma.job.findMany({
+    where: homeownerId ? { homeownerId } : undefined,
     orderBy: { createdAt: "desc" },
     include: {
       homeowner: true,

@@ -917,9 +917,22 @@ export default function JobWorkspacePage() {
                     <QrCode className="w-5 h-5 text-brick-600" />
                     Authorized Site Crew Manifest
                   </h2>
-                  <span className="font-mono text-xs font-black uppercase px-2.5 py-0.5 bg-iron-950 text-white border-2 border-iron-950 rounded-none">
-                    {activeVisit.status}
-                  </span>
+                  <div className="flex flex-wrap items-center gap-2 font-mono text-xs">
+                    <span className="font-bold uppercase px-2.5 py-0.5 bg-safety-100 text-iron-950 border-2 border-iron-950 rounded-none tabular-nums">
+                      HEADCOUNT LOCK: {1 + activeVisit.crewMembers.length} PERSON(S)
+                    </span>
+                    <span className="font-black uppercase px-2.5 py-0.5 bg-iron-950 text-white border-2 border-iron-950 rounded-none">
+                      {activeVisit.status}
+                    </span>
+                  </div>
+                </div>
+
+                <div className="p-3 border-2 border-iron-950 bg-mortar-100 font-mono text-xs text-iron-950 leading-relaxed rounded-none">
+                  <strong>ZERO UNANNOUNCED PERSONNEL:</strong> Only the{" "}
+                  <span className="tabular-nums font-bold">
+                    {1 + activeVisit.crewMembers.length}
+                  </span>{" "}
+                  named, SAPS-cleared individual(s) below are authorized to enter your property. If a company or builder arrives with any unvetted or unlisted person at your door, refuse entry and trigger <strong>PANIC FREEZE</strong>.
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">

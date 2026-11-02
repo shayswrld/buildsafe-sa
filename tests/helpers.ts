@@ -287,3 +287,507 @@ export function calculateEscrowProportions(labourZar: number, materialsZar: numb
     split,
   };
 }
+
+import {
+  PersonaRole,
+  PersonaUserDTO,
+  WorkerProfileDTO,
+} from "@/components/PersonaContext";
+import { DEFAULT_PLATFORM_CONFIG, TRADE_CATEGORIES } from "@/lib/config";
+
+/**
+ * Lightweight Mock Session & Persona State Machine Implementation
+ * Adheres strictly to PersonaContext Contract in PROJECT.md
+ */
+export interface RegisterUserData {
+  name: string;
+  phone: string;
+  email?: string;
+  role: "CLIENT" | "BUILDER" | "DUAL_ROLE";
+  suburb: string;
+  city: string;
+  saIdNumber?: string;
+  selfieConfirmed?: boolean;
+  trades?: string[];
+}
+
+export class MockPersonaSessionManager {
+  private storage: Map<string, string> = new Map();
+  private personas: PersonaUserDTO[] = [];
+  public currentUser: PersonaUserDTO | null = null;
+  public activeRole: PersonaRole = "CLIENT";
+  public availableRoles: PersonaRole[] = ["CLIENT"];
+  public isDualRole: boolean = false;
+
+  // Storage key contracts from PROJECT.md
+  public static readonly STORAGE_PERSONA_ID_KEY = "buildsafe_active_persona_id";
+  public static readonly STORAGE_ACTIVE_ROLE_KEY = "buildsafe_active_role";
+
+  constructor(initialPersonas?: PersonaUserDTO[]) {
+    if (initialPersonas) {
+      this.personas = [...initialPersonas];
+    } else {
+      this.personas = this.createDefaultSeedPersonas();
+    }
+  }
+
+  private createDefaultSeedPersonas(): PersonaUserDTO[] {
+    const builderProfile: WorkerProfileDTO = {
+      id: "worker_sipho_profile",
+      userId: "user_worker_sipho",
+      vettingTier: "TIER_2_SAPS_CLEARED",
+      saIdMasked: "850101 **** 088",
+      citizenshipStatus: "SA_CITIZEN",
+      selfieVerified: true,
+      popiaConsentSigned: true,
+      huruFeePaid: true,
+      sapsStatus: "CLEARED",
+      tradesJson: JSON.stringify(["PLUMBING", "TILING"]),
+      nearestHardwareHub: "Builders Warehouse Fourways",
+      yearsExperience: 8,
+      bio: "Certified plumber and master tiler.",
+      walletBalanceZar: 4200,
+      totalPaidOutZar: 18500,
+      completedJobsCount: 14,
+      certifications: [],
+    };
+
+    const dualProfile: WorkerProfileDTO = {
+      id: "worker_dual_thabo_profile",
+      userId: "user_dual_thabo",
+      vettingTier: "TIER_3_COC_CERTIFIED",
+      saIdMasked: "880512 **** 081",
+      citizenshipStatus: "SA_CITIZEN",
+      selfieVerified: true,
+      popiaConsentSigned: true,
+      huruFeePaid: true,
+      sapsStatus: "CLEARED",
+      tradesJson: JSON.stringify(["ELECTRICAL", "BUILDING"]),
+      nearestHardwareHub: "Builders Express Midrand",
+      yearsExperience: 10,
+      bio: "Registered contractor & electrical artisan.",
+      walletBalanceZar: 9500,
+      totalPaidOutZar: 45000,
+      completedJobsCount: 22,
+      certifications: [
+        {
+          id: "cert_wireman_1",
+          body: "ECB_WIREMAN",
+          registrationNumber: "DoEL-IE-98214",
+          tradeCategory: "ELECTRICAL",
+          status: "VERIFIED",
+        },
+      ],
+    };
+
+    return [
+      {
+        id: "user_homeowner_lerato",
+        name: "Lerato Khumalo",
+        phone: "082 123 4567",
+        role: "HOMEOWNER",
+        suburb: "Fourways",
+        city: "Johannesburg",
+        ratingAvg: 4.9,
+        ratingCount: 18,
+        workerProfile: null,
+        isDualRole: false,
+      },
+      {
+        id: "user_worker_sipho",
+        name: "Sipho Dlamini",
+        phone: "072 987 6543",
+        role: "WORKER",
+        suburb: "Diepsloot West",
+        city: "Johannesburg",
+        ratingAvg: 4.85,
+        ratingCount: 32,
+        workerProfile: builderProfile,
+        isDualRole: false,
+      },
+      {
+        id: "user_dual_thabo",
+        name: "Thabo Molefe",
+        phone: "083 456 7890",
+        role: "DUAL",
+        suburb: "Midrand",
+        city: "Johannesburg",
+        ratingAvg: 5.0,
+        ratingCount: 12,
+        workerProfile: dualProfile,
+        isDualRole: true,
+      },
+      {
+        id: "user_admin_kgosi",
+        name: "Kgosi Modise",
+        phone: "011 555 0199",
+        role: "ADMIN",
+        suburb: "Sandton",
+        city: "Johannesburg",
+        ratingAvg: 5.0,
+        ratingCount: 100,
+        workerProfile: null,
+        isDualRole: false,
+      },
+    ];
+  }
+
+  // Session storage simulation
+  public setStorageItem(key: string, value: string): void {
+    this.storage.set(key, value);
+  }
+
+  public getStorageItem(key: string): string | null {
+    return this.storage.get(key) ?? null;
+  }
+
+  public removeStorageItem(key: string): void {
+    this.storage.delete(key);
+  }
+
+  public hydrateFromStorage(): void {
+    const savedUserId = this.getStorageItem(MockPersonaSessionManager.STORAGE_PERSONA_ID_KEY);
+    const savedRole = this.getStorageItem(MockPersonaSessionManager.STORAGE_ACTIVE_ROLE_KEY) as PersonaRole | null;
+
+    if (savedUserId) {
+      const matched = this.personas.find((p) => p.id === savedUserId);
+      if (matched) {
+        this.login(matched.id, savedRole ?? undefined);
+        return;
+      }
+    }
+
+    if (this.personas.length > 0 && !this.currentUser) {
+      this.login(this.personas[0].id);
+    }
+  }
+
+  public login(userId: string, targetRole?: PersonaRole): { success: boolean; user?: PersonaUserDTO; error?: string } {
+    const user = this.personas.find((p) => p.id === userId || p.phone === userId);
+    if (!user) {
+      return { success: false, error: "User not found in persona registry" };
+    }
+
+    this.currentUser = user;
+    this.isDualRole = user.role === "DUAL" || Boolean(user.isDualRole);
+
+    if (this.isDualRole) {
+      this.availableRoles = ["CLIENT", "BUILDER"];
+    } else if (user.role === "WORKER" || Boolean(user.workerProfile)) {
+      this.availableRoles = ["BUILDER"];
+    } else if (user.role === "ADMIN") {
+      this.availableRoles = ["ADMIN"];
+    } else {
+      this.availableRoles = ["CLIENT"];
+    }
+
+    if (targetRole && this.availableRoles.includes(targetRole)) {
+      this.activeRole = targetRole;
+    } else if (this.availableRoles.includes("CLIENT")) {
+      this.activeRole = "CLIENT";
+    } else if (this.availableRoles.includes("BUILDER")) {
+      this.activeRole = "BUILDER";
+    } else {
+      this.activeRole = this.availableRoles[0] || "CLIENT";
+    }
+
+    this.setStorageItem(MockPersonaSessionManager.STORAGE_PERSONA_ID_KEY, user.id);
+    this.setStorageItem(MockPersonaSessionManager.STORAGE_ACTIVE_ROLE_KEY, this.activeRole);
+
+    return { success: true, user: this.currentUser };
+  }
+
+  public logout(): void {
+    this.currentUser = null;
+    this.activeRole = "CLIENT";
+    this.availableRoles = ["CLIENT"];
+    this.isDualRole = false;
+    this.removeStorageItem(MockPersonaSessionManager.STORAGE_PERSONA_ID_KEY);
+    this.removeStorageItem(MockPersonaSessionManager.STORAGE_ACTIVE_ROLE_KEY);
+  }
+
+  public register(data: RegisterUserData): { user: PersonaUserDTO; redirectRoute: string } {
+    const isDual = data.role === "DUAL_ROLE";
+    const isBuilder = data.role === "BUILDER" || isDual;
+
+    let workerProfile: WorkerProfileDTO | null = null;
+    if (isBuilder) {
+      workerProfile = {
+        id: `worker_${Date.now()}`,
+        userId: `user_${Date.now()}`,
+        vettingTier: "TIER_1_BROWSE_ONLY",
+        saIdMasked: data.saIdNumber
+          ? `${data.saIdNumber.slice(0, 6)} **** ${data.saIdNumber.slice(-3)}`
+          : "890101 **** 080",
+        citizenshipStatus: "SA_CITIZEN",
+        selfieVerified: Boolean(data.selfieConfirmed),
+        popiaConsentSigned: false,
+        huruFeePaid: false,
+        sapsStatus: "UNSTARTED",
+        tradesJson: JSON.stringify(data.trades && data.trades.length > 0 ? data.trades : ["PAINTING"]),
+        nearestHardwareHub: "Builders Warehouse Fourways",
+        yearsExperience: 3,
+        bio: `${data.name} professional profile.`,
+        walletBalanceZar: 0,
+        totalPaidOutZar: 0,
+        completedJobsCount: 0,
+        certifications: [],
+      };
+    }
+
+    const newUser: PersonaUserDTO = {
+      id: `user_${Date.now()}`,
+      name: data.name.trim(),
+      phone: data.phone.trim(),
+      email: data.email?.trim() || null,
+      role: isDual ? "DUAL" : isBuilder ? "WORKER" : "HOMEOWNER",
+      suburb: data.suburb.trim(),
+      city: data.city.trim(),
+      ratingAvg: 5.0,
+      ratingCount: 0,
+      workerProfile,
+      isDualRole: isDual,
+    };
+
+    this.personas.push(newUser);
+    const initialRole: PersonaRole = isDual ? "CLIENT" : isBuilder ? "BUILDER" : "CLIENT";
+    this.login(newUser.id, initialRole);
+
+    const redirectRoute = isDual
+      ? "/client/dashboard"
+      : isBuilder
+      ? "/worker/dashboard"
+      : "/client/dashboard";
+
+    return { user: newUser, redirectRoute };
+  }
+
+  public toggleRole(): { success: boolean; newRole?: PersonaRole; error?: string } {
+    if (!this.currentUser) {
+      return { success: false, error: "No active user session" };
+    }
+
+    if (!this.isDualRole) {
+      if (this.activeRole === "CLIENT" && !this.currentUser.workerProfile) {
+        return {
+          success: false,
+          error: "Single-role client cannot switch to builder perspective without completing builder registration",
+        };
+      }
+      return {
+        success: false,
+        error: "Single-role account cannot toggle perspective",
+      };
+    }
+
+    this.activeRole = this.activeRole === "CLIENT" ? "BUILDER" : "CLIENT";
+    this.setStorageItem(MockPersonaSessionManager.STORAGE_ACTIVE_ROLE_KEY, this.activeRole);
+    return { success: true, newRole: this.activeRole };
+  }
+
+  public setActiveRole(targetRole: PersonaRole): { success: boolean; error?: string } {
+    if (!this.availableRoles.includes(targetRole)) {
+      return {
+        success: false,
+        error: `Role '${targetRole}' is not permitted for current user profile`,
+      };
+    }
+    this.activeRole = targetRole;
+    this.setStorageItem(MockPersonaSessionManager.STORAGE_ACTIVE_ROLE_KEY, targetRole);
+    return { success: true };
+  }
+
+  public getNavigationShellBadge(): {
+    badgeLabel: string;
+    toggleButtonLabel: string | null;
+    roleColorClass: string;
+  } {
+    if (this.activeRole === "CLIENT") {
+      return {
+        badgeLabel: "[ CLIENT VIEW ]",
+        toggleButtonLabel: this.isDualRole ? "[ ⇄ Switch to Builder ]" : null,
+        roleColorClass: "bg-brick-600 text-white",
+      };
+    }
+    if (this.activeRole === "BUILDER") {
+      return {
+        badgeLabel: "[ BUILDER VIEW ]",
+        toggleButtonLabel: this.isDualRole ? "[ ⇄ Switch to Client ]" : null,
+        roleColorClass: "bg-iron-950 text-white",
+      };
+    }
+    return {
+      badgeLabel: "[ ADMIN CONSOLE ]",
+      toggleButtonLabel: null,
+      roleColorClass: "bg-safety text-iron-950",
+    };
+  }
+}
+
+/**
+ * Client Portal Dashboard Model & Filtering State Machine
+ */
+export type ClientJobStatusFilter = "ALL" | "NEEDS_ATTENTION" | "ACTIVE_ON_SITE" | "COMPLETED";
+
+export interface ClientJobSummaryDTO {
+  id: string;
+  homeownerId: string;
+  title: string;
+  category: string;
+  status: "OPEN" | "QUOTED" | "ESCROW_FUNDED" | "WORKER_ON_SITE" | "WORK_SUBMITTED" | "COMPLETED";
+  urgency: string;
+  requiresCoC: boolean;
+  budgetEstimateZar: number | null;
+  callOutDepositZar: number;
+  quotesCount: number;
+  quotes?: Array<{
+    id: string;
+    workerProfileId: string;
+    artisanName: string;
+    vettingTier: string;
+    labourAmountZar: number;
+    materialsEstimateZar: number;
+    ratingAvg: number;
+    completedJobsCount: number;
+  }>;
+  createdAt: string;
+}
+
+export function filterClientJobs(
+  jobs: ClientJobSummaryDTO[],
+  filter: ClientJobStatusFilter,
+  homeownerId: string
+): ClientJobSummaryDTO[] {
+  const clientJobs = jobs.filter((j) => j.homeownerId === homeownerId);
+
+  switch (filter) {
+    case "NEEDS_ATTENTION":
+      return clientJobs.filter((j) => j.status === "QUOTED" || j.status === "WORK_SUBMITTED");
+    case "ACTIVE_ON_SITE":
+      return clientJobs.filter((j) => j.status === "ESCROW_FUNDED" || j.status === "WORKER_ON_SITE");
+    case "COMPLETED":
+      return clientJobs.filter((j) => j.status === "COMPLETED");
+    case "ALL":
+    default:
+      return clientJobs;
+  }
+}
+
+/**
+ * Client Job Creation Budget Affordability Engine
+ */
+export function calculateJobAffordability(params: {
+  tradeCategorySlug: string;
+  labourEstimateZar: number;
+  materialsEstimateZar?: number;
+}) {
+  const trade = TRADE_CATEGORIES.find((t) => t.slug === params.tradeCategorySlug) ?? TRADE_CATEGORIES[0];
+  const safeLabour = Math.max(0, isNaN(params.labourEstimateZar) ? 0 : params.labourEstimateZar);
+  const safeMaterials = Math.max(0, isNaN(params.materialsEstimateZar ?? 0) ? 0 : (params.materialsEstimateZar ?? 0));
+
+  const split = computeEscrowSplit({
+    labourZar: safeLabour,
+    materialsZar: safeMaterials,
+    config: DEFAULT_PLATFORM_CONFIG,
+  });
+
+  const callOutDepositZar = trade.defaultCallOutZar;
+  const remainingLabourEscrowZar = Math.max(0, safeLabour - callOutDepositZar);
+
+  return {
+    tradeCategory: trade.label,
+    callOutDepositZar,
+    labourEstimateZar: safeLabour,
+    materialsEstimateZar: safeMaterials,
+    buyerTrustFeeZar: split.buyerTrustFeeZar,
+    grossClientCommitmentZar: split.grossBuyerPaidZar,
+    remainingLabourEscrowZar,
+    materialsMarkupPercent: 0,
+    summaryNotes: `R${callOutDepositZar} call-out deposit credited in full toward labour upon hiring. 0% markup on hardware receipts.`,
+  };
+}
+
+/**
+ * Skills & Professional Profile Update Validator
+ */
+export interface UpdateSkillsPayload {
+  workerProfileId: string;
+  trades: string[];
+  yearsExperience: number;
+  bio: string;
+  nearestHardwareHub: string;
+}
+
+export function validateSkillsUpdate(payload: UpdateSkillsPayload): {
+  valid: boolean;
+  sanitized?: UpdateSkillsPayload;
+  error?: string;
+} {
+  if (!payload.workerProfileId) {
+    return { valid: false, error: "Worker profile ID is required" };
+  }
+  if (!Array.isArray(payload.trades) || payload.trades.length === 0) {
+    return { valid: false, error: "At least one trade category is required" };
+  }
+  if (typeof payload.yearsExperience !== "number" || payload.yearsExperience < 0) {
+    return { valid: false, error: "Years of experience must be a non-negative number" };
+  }
+  if (!payload.bio || payload.bio.trim().length < 10) {
+    return { valid: false, error: "Professional bio must be at least 10 characters long" };
+  }
+  if (!payload.nearestHardwareHub || payload.nearestHardwareHub.trim().length === 0) {
+    return { valid: false, error: "Nearest hardware store / trade hub is required" };
+  }
+
+  return {
+    valid: true,
+    sanitized: {
+      workerProfileId: payload.workerProfileId,
+      trades: payload.trades.map((t) => t.toUpperCase().trim()),
+      yearsExperience: Math.floor(payload.yearsExperience),
+      bio: payload.bio.trim(),
+      nearestHardwareHub: payload.nearestHardwareHub.trim(),
+    },
+  };
+}
+
+/**
+ * Builder Job Browsing Feed Simulator
+ */
+export interface JobFeedItem {
+  id: string;
+  category: string;
+  title: string;
+  suburb: string;
+  city: string;
+  streetAddressEncrypted?: string;
+  urgency: "EMERGENCY_24H" | "THIS_WEEK" | "FLEXIBLE";
+  requiresCoC: boolean;
+  callOutDepositZar: number;
+  budgetEstimateZar: number | null;
+  status: "OPEN" | "QUOTED";
+}
+
+export function browseJobsForBuilder(
+  jobs: JobFeedItem[],
+  options: {
+    builderTrades?: string[];
+    urgencyFilter?: string;
+    tradeFilter?: string;
+    matchMyTradesOnly?: boolean;
+  }
+): Array<Omit<JobFeedItem, "streetAddressEncrypted">> {
+  let filtered = jobs.filter((j) => j.status === "OPEN" || j.status === "QUOTED");
+
+  if (options.matchMyTradesOnly && options.builderTrades && options.builderTrades.length > 0) {
+    filtered = filtered.filter((j) => options.builderTrades!.includes(j.category));
+  } else if (options.tradeFilter && options.tradeFilter !== "ALL") {
+    filtered = filtered.filter((j) => j.category === options.tradeFilter);
+  }
+
+  if (options.urgencyFilter && options.urgencyFilter !== "ALL") {
+    filtered = filtered.filter((j) => j.urgency === options.urgencyFilter);
+  }
+
+  return filtered.map(({ streetAddressEncrypted, ...safeProps }) => safeProps);
+}

@@ -26,6 +26,9 @@ jobs:
 
       - name: Generate Prisma Client
         run: npx prisma generate
+        env:
+          DATABASE_URL: "postgresql://postgres:postgres@localhost:5432/ci_build?schema=public"
+          DIRECT_URL: "postgresql://postgres:postgres@localhost:5432/ci_build?schema=public"
 
       - name: Run Vitest Unit & Integration Tests
         run: npm test
@@ -33,4 +36,31 @@ jobs:
       - name: Build Next.js Production Application
         run: npm run build
         env:
-          DATABASE_URL: "file:./ci.db"
+          DATABASE_URL: "postgresql://postgres:postgres@localhost:5432/ci_build?schema=public"
+          DIRECT_URL: "postgresql://postgres:postgres@localhost:5432/ci_build?schema=public"
+
+  # Optional: Automatically push Prisma schema changes to Neon on push to main
+  db-sync:
+    name: Sync Neon Database Schema
+    needs: test-and-build
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push' && vars.ENABLE_AUTO_DB_SYNC == 'true'
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Push Prisma Schema to Neon
+        run: npx prisma db push --skip-generate
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          DIRECT_URL: ${{ secrets.DIRECT_URL }}

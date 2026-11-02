@@ -41,8 +41,7 @@ export default function HomePage() {
         <div className="max-w-7xl mx-auto space-y-6">
           <div className="space-y-4 max-w-3xl">
             <h1 className="text-4xl sm:text-5xl font-black tracking-tight leading-none text-iron-950 uppercase">
-              Hire SAPS-Cleared Artisans.
-              <span className="block text-brick-600 mt-1.5">Milestone Escrow. Gate OTP Security.</span>
+              Where Creatives Meet <span className="text-brick-600">Craftspeople.</span>
             </h1>
 
             <div className="flex flex-wrap items-center gap-3 pt-2">

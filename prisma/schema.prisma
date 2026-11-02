@@ -3,8 +3,9 @@ generator client {
 }
 
 datasource db {
-  provider = "sqlite"
-  url      = env("DATABASE_URL")
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
 }
 
 model PlatformConfig {
@@ -38,32 +39,52 @@ model User {
   reviewsReceived Review[]        @relation("ReviewsReceived")
 }
 
+model BuilderCompany {
+  id                      String   @id @default(cuid())
+  name                    String
+  tradingName             String?
+  cipcRegistrationNumber  String   @unique
+  cipcStatus              String   @default("VERIFIED_IN_BUSINESS") // PENDING | VERIFIED_IN_BUSINESS | DISSOLVED_OR_INVALID
+  cidbGrading             String?  // e.g. 1GB, 2GB, 3CE
+  nhbrcRegistrationNumber String?
+  directorSaIdHash        String
+  ownerWorkerProfileId    String   @unique
+  createdAt               DateTime @default(now())
+
+  roster WorkerProfile[] @relation("CompanyRoster")
+}
+
 model WorkerProfile {
-  id                 String    @id @default(cuid())
-  userId             String    @unique
-  vettingTier        String    @default("TIER_1_BROWSE_ONLY") // TIER_1_BROWSE_ONLY | TIER_2_SAPS_CLEARED | TIER_3_COC_CERTIFIED | SUSPENDED
-  saIdMasked         String
-  saIdHash           String
-  citizenshipStatus  String    @default("SA_CITIZEN")
-  selfieVerified     Boolean   @default(false)
-  selfieVerifiedAt   DateTime?
-  popiaConsentSigned Boolean   @default(false)
-  popiaConsentAt     DateTime?
-  huruVoucherCode    String?
-  huruFeePaid        Boolean   @default(false)
-  sapsStatus         String    @default("UNSTARTED") // UNSTARTED | PENDING_FINGERPRINTS | CLEARED | FLAGGED_RECORD
-  sapsCertificateRef String?
-  sapsClearedAt      DateTime?
-  tradesJson         String    @default("[]")
-  nearestHardwareHub String
-  yearsExperience    Int       @default(3)
-  bio                String    @default("")
-  walletBalanceZar   Float     @default(0)
-  totalPaidOutZar    Float     @default(0)
-  completedJobsCount Int       @default(0)
-  createdAt          DateTime  @default(now())
+  id                  String    @id @default(cuid())
+  userId              String    @unique
+  companyId           String?
+  roleInCompany       String    @default("INDEPENDENT_ARTISAN") // INDEPENDENT_ARTISAN | DIRECTOR_LEAD | VETTED_ARTISAN | SITE_ASSISTANT
+  vettingTier         String    @default("TIER_1_BROWSE_ONLY") // TIER_1_BROWSE_ONLY | TIER_2_SAPS_CLEARED | TIER_3_COC_CERTIFIED | SUSPENDED
+  saIdMasked          String
+  saIdHash            String
+  citizenshipStatus   String    @default("SA_CITIZEN")
+  selfieVerified      Boolean   @default(false)
+  selfieVerifiedAt    DateTime?
+  identityProviderRef String?
+  popiaConsentSigned  Boolean   @default(false)
+  popiaConsentAt      DateTime?
+  huruVoucherCode     String?
+  huruFeePaid         Boolean   @default(false)
+  sapsStatus          String    @default("UNSTARTED") // UNSTARTED | PENDING_FINGERPRINTS | CLEARED | FLAGGED_RECORD
+  sapsCertificateRef  String?
+  sapsClearedAt       DateTime?
+  sapsExpiresAt       DateTime?
+  tradesJson          String    @default("[]")
+  nearestHardwareHub  String
+  yearsExperience     Int       @default(3)
+  bio                 String    @default("")
+  walletBalanceZar    Float     @default(0)
+  totalPaidOutZar     Float     @default(0)
+  completedJobsCount  Int       @default(0)
+  createdAt           DateTime  @default(now())
 
   user            User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
+  company         BuilderCompany?      @relation("CompanyRoster", fields: [companyId], references: [id], onDelete: SetNull)
   certifications  TradeCertification[]
   quotes          Quote[]
   selectedForJobs Job[]                @relation("SelectedWorkerJobs")
@@ -74,11 +95,13 @@ model WorkerProfile {
 model TradeCertification {
   id                 String    @id @default(cuid())
   workerProfileId    String
-  body               String    // PIRB | ECB_WIREMAN | NHBRC | SAQCC_GAS
+  body               String    // PIRB | ECB_WIREMAN | NHBRC | SAQCC_GAS | CIDB
   registrationNumber String
   tradeCategory      String    // PLUMBING | ELECTRICAL | BUILDING | GAS
   status             String    @default("PENDING") // PENDING | VERIFIED | REJECTED
+  registryVerifyUrl  String?
   verifiedAt         DateTime?
+  expiresAt          DateTime?
   notes              String?
   createdAt          DateTime  @default(now())
 

@@ -44,6 +44,10 @@ describe("Milestone 5 Adversarial Verification: Route Reachability & Link Integr
       "/worker/dashboard",
       "/worker/onboarding",
       "/admin",
+      "/login",
+      "/signup",
+      "/client",
+      "/client/dashboard",
     ]);
 
     const extractedHrefs: { file: string; href: string }[] = [];

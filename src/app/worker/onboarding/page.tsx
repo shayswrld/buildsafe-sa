@@ -39,11 +39,30 @@ export default function WorkerOnboardingPage() {
   } | null>(null);
 
   const [isCocDrawerOpen, setIsCocDrawerOpen] = useState<boolean>(false);
+  const [isCompanyDrawerOpen, setIsCompanyDrawerOpen] = useState<boolean>(false);
+  const [isCrewDrawerOpen, setIsCrewDrawerOpen] = useState<boolean>(false);
   const [isDevSandboxOpen, setIsDevSandboxOpen] = useState<boolean>(false);
 
   const [cocBody, setCocBody] = useState<string>("PIRB");
   const [cocRegNumber, setCocRegNumber] = useState<string>("PIRB-77102-ZA");
   const [cocTrade, setCocTrade] = useState<string>("PLUMBING");
+
+  const [companyName, setCompanyName] = useState<string>(
+    "Dlamini & Sons Home Renovations (Pty) Ltd"
+  );
+  const [cipcNumber, setCipcNumber] = useState<string>("2021/448102/07");
+  const [cidbGrading, setCidbGrading] = useState<string>("2GB");
+  const [nhbrcNumber, setNhbrcNumber] = useState<string>("NHBRC-884012");
+
+  const [crewName, setCrewName] = useState<string>("Bongani Sithole");
+  const [crewPhone, setCrewPhone] = useState<string>(
+    `+2774${Math.floor(1000000 + Math.random() * 8999999)}`
+  );
+  const [crewSaId, setCrewSaId] = useState<string>(
+    buildValidSaId("930514", "5219", "0")
+  );
+  const [crewRole, setCrewRole] = useState<string>("SITE_ASSISTANT");
+  const [crewSelfie, setCrewSelfie] = useState<boolean>(true);
 
   const [newName, setNewName] = useState<string>("Mandla Zulu");
   const [newPhone, setNewPhone] = useState<string>(
@@ -128,6 +147,47 @@ export default function WorkerOnboardingPage() {
         text: "CoC submitted to Admin Queue.",
       });
       setIsCocDrawerOpen(false);
+    }
+  };
+
+  const handleRegisterCompany = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!wp) return;
+    const data = await callVettingApi({
+      action: "REGISTER_COMPANY",
+      workerProfileId: wp.id,
+      companyName,
+      cipcNumber,
+      cidbGrading,
+      nhbrcNumber,
+    });
+    if (data) {
+      setStatusMsg({
+        kind: "ok",
+        text: data.summary || "Company verified against CIPC.",
+      });
+      setIsCompanyDrawerOpen(false);
+    }
+  };
+
+  const handleAddCompanyCrewMember = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!wp?.company) return;
+    const data = await callVettingApi({
+      action: "ADD_COMPANY_CREW_MEMBER",
+      companyId: wp.company.id,
+      name: crewName,
+      phone: crewPhone,
+      saIdNumber: crewSaId,
+      selfieConfirmed: crewSelfie,
+      roleInCompany: crewRole,
+    });
+    if (data) {
+      setStatusMsg({
+        kind: "ok",
+        text: data.summary || "Crew member onboarded on Tier 1.",
+      });
+      setIsCrewDrawerOpen(false);
     }
   };
 
@@ -587,6 +647,7 @@ export default function WorkerOnboardingPage() {
                           <option value="ECB_WIREMAN">ECB Wireman (Electrical)</option>
                           <option value="NHBRC">NHBRC (Builder)</option>
                           <option value="SAQCC_GAS">SAQCC (Gas)</option>
+                          <option value="CIDB">CIDB (Contractor Grade)</option>
                         </select>
                       </div>
 
@@ -614,6 +675,291 @@ export default function WorkerOnboardingPage() {
                   </form>
                 )}
               </div>
+            </div>
+
+            {/* COMPANY & PER-PERSON CREW ROSTER VETTING */}
+            <div className="border-2 border-iron-950 bg-white rounded-none shadow-brutal p-5 space-y-3">
+              <div className="flex flex-wrap items-center justify-between gap-2 border-b-2 border-iron-950 pb-2.5">
+                <div className="flex items-center gap-2">
+                  <span className="font-mono text-xs font-bold uppercase text-brick-600">
+                    // CREW &amp; ENTITY
+                  </span>
+                  <h3 className="font-black text-base text-iron-950 uppercase">
+                    Company &amp; Mandatory Per-Person Crew Roster
+                  </h3>
+                </div>
+                <span className="font-mono text-[10px] font-bold uppercase px-2 py-0.5 border border-iron-950 bg-safety-50 text-iron-950">
+                  ZERO UNVETTED PERSONNEL POLICY
+                </span>
+              </div>
+
+              <div className="p-3 border-2 border-iron-950 bg-mortar-100 text-xs font-mono text-iron-950 leading-relaxed">
+                <strong>CLIENT SAFETY MANDATE:</strong> Registering a renovations company (CIPC) never grants blanket site access. Every director, artisan, and assistant arriving at a homeowner&apos;s gate must hold their own verified 13-digit SA ID, selfie match, and individual SAPS biometric clearance.
+              </div>
+
+              {wp.company ? (
+                <div className="space-y-3">
+                  <div className="p-3 border-2 border-iron-950 bg-white flex flex-wrap items-center justify-between gap-3 font-mono text-xs">
+                    <div>
+                      <div className="font-black text-sm text-iron-950 uppercase">
+                        {wp.company.name}
+                      </div>
+                      <div className="text-iron-700">
+                        CIPC: <strong className="text-iron-950 tabular-nums">{wp.company.cipcRegistrationNumber}</strong>
+                        {wp.company.cidbGrading && (
+                          <> • CIDB: <strong className="text-iron-950">{wp.company.cidbGrading}</strong></>
+                        )}
+                        {wp.company.nhbrcRegistrationNumber && (
+                          <> • NHBRC: <strong className="text-iron-950 tabular-nums">{wp.company.nhbrcRegistrationNumber}</strong></>
+                        )}
+                      </div>
+                    </div>
+                    <span className="px-2 py-0.5 border border-iron-950 bg-emerald-100 text-emerald-950 font-bold text-[10px] uppercase">
+                      {wp.company.cipcStatus.replace(/_/g, " ")}
+                    </span>
+                  </div>
+
+                  {wp.company.roster && wp.company.roster.length > 0 && (
+                    <div className="space-y-1.5 font-mono text-xs">
+                      <div className="text-[11px] font-bold uppercase text-iron-700">
+                        Registered Company Personnel ({wp.company.roster.length} Individual Profiles):
+                      </div>
+                      {wp.company.roster.map((member) => {
+                        const isCleared = member.sapsStatus === "CLEARED";
+                        const isFlagged = member.sapsStatus === "FLAGGED_RECORD";
+                        return (
+                          <div
+                            key={member.id}
+                            className="p-2.5 border border-iron-950 bg-mortar-50 flex flex-wrap items-center justify-between gap-2"
+                          >
+                            <div>
+                              <span className="font-bold text-iron-950">
+                                {member.user?.name || member.id}
+                              </span>{" "}
+                              <span className="text-iron-700 tabular-nums">
+                                ({member.saIdMasked})
+                              </span>{" "}
+                              <span className="text-[10px] uppercase px-1.5 py-0.5 border border-iron-950 bg-white text-iron-950">
+                                {(member.roleInCompany || "CREW").replace(/_/g, " ")}
+                              </span>
+                            </div>
+
+                            <div className="flex items-center gap-2">
+                              <span
+                                className={`px-2 py-0.5 border border-iron-950 text-[10px] font-bold uppercase ${
+                                  isCleared
+                                    ? "bg-emerald-100 text-emerald-950"
+                                    : isFlagged
+                                    ? "bg-rose-100 text-rose-950"
+                                    : "bg-amber-100 text-amber-950"
+                                }`}
+                              >
+                                {isCleared
+                                  ? "SAPS CLEARED · GATE ELIGIBLE"
+                                  : isFlagged
+                                  ? "FLAGGED · PERMANENTLY BLOCKED"
+                                  : "UNVETTED · BLOCKED FROM CLIENT GATES"}
+                              </span>
+                              {!isCleared && member.userId && member.userId !== activeWorker.id && (
+                                <button
+                                  type="button"
+                                  onClick={() => setCurrentUserId(member.userId)}
+                                  className="brutal-btn brutal-btn-outline px-2 py-0.5 text-[10px]"
+                                >
+                                  Complete SAPS Check
+                                </button>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+
+                  <div>
+                    <button
+                      type="button"
+                      onClick={() => setIsCrewDrawerOpen(!isCrewDrawerOpen)}
+                      className="brutal-btn brutal-btn-outline w-full py-2 flex items-center justify-between px-3.5 text-xs"
+                    >
+                      <span>
+                        {isCrewDrawerOpen
+                          ? "[-] CLOSE CREW ONBOARDING FORM"
+                          : "[+] ONBOARD CREW MEMBER (INDIVIDUAL SA ID + SELFIE REQUIRED)"}
+                      </span>
+                      {isCrewDrawerOpen ? (
+                        <ChevronUp className="w-4 h-4" />
+                      ) : (
+                        <ChevronDown className="w-4 h-4" />
+                      )}
+                    </button>
+
+                    {isCrewDrawerOpen && (
+                      <form
+                        onSubmit={handleAddCompanyCrewMember}
+                        className="mt-2.5 p-3.5 border-2 border-iron-950 bg-mortar-50 space-y-3 text-xs transition-all duration-150"
+                      >
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                          <div>
+                            <label className="block font-bold text-iron-950 uppercase font-mono mb-1 text-[11px]">
+                              Crew Member Full Name (As on SA ID)
+                            </label>
+                            <input
+                              type="text"
+                              required
+                              value={crewName}
+                              onChange={(e) => setCrewName(e.target.value)}
+                              className="w-full border-2 border-iron-950 rounded-none px-3 py-1.5 bg-white font-mono text-xs focus:outline-none"
+                            />
+                          </div>
+                          <div>
+                            <label className="block font-bold text-iron-950 uppercase font-mono mb-1 text-[11px]">
+                              Crew Mobile Number
+                            </label>
+                            <input
+                              type="text"
+                              required
+                              value={crewPhone}
+                              onChange={(e) => setCrewPhone(e.target.value)}
+                              className="w-full border-2 border-iron-950 rounded-none px-3 py-1.5 bg-white font-mono text-xs focus:outline-none"
+                            />
+                          </div>
+                          <div>
+                            <label className="block font-bold text-iron-950 uppercase font-mono mb-1 text-[11px]">
+                              Crew 13-Digit SA ID
+                            </label>
+                            <input
+                              type="text"
+                              required
+                              maxLength={13}
+                              value={crewSaId}
+                              onChange={(e) => setCrewSaId(e.target.value)}
+                              className="w-full border-2 border-iron-950 rounded-none px-3 py-1.5 bg-white font-mono tabular-nums text-xs focus:outline-none"
+                            />
+                          </div>
+                          <div>
+                            <label className="block font-bold text-iron-950 uppercase font-mono mb-1 text-[11px]">
+                              Role on Site
+                            </label>
+                            <select
+                              value={crewRole}
+                              onChange={(e) => setCrewRole(e.target.value)}
+                              className="w-full border-2 border-iron-950 rounded-none px-3 py-1.5 bg-white font-mono text-xs focus:outline-none"
+                            >
+                              <option value="SITE_ASSISTANT">Site Assistant / Helper</option>
+                              <option value="VETTED_ARTISAN">Qualified Artisan</option>
+                            </select>
+                          </div>
+                        </div>
+
+                        <label className="flex items-center gap-2 p-2 border border-iron-950 bg-white cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={crewSelfie}
+                            onChange={(e) => setCrewSelfie(e.target.checked)}
+                            className="w-4 h-4 rounded-none border-2 border-iron-950"
+                          />
+                          <span className="font-mono text-[11px] font-bold text-iron-950">
+                            Crew Member Live Selfie Matched to Home Affairs NPR Photo
+                          </span>
+                        </label>
+
+                        <button
+                          type="submit"
+                          className="brutal-btn brutal-btn-primary px-4 py-2 text-xs"
+                        >
+                          Add to Roster (Starts Tier 1 — Requires SAPS Check for Site Entry)
+                        </button>
+                      </form>
+                    )}
+                  </div>
+                </div>
+              ) : (
+                <div>
+                  <button
+                    type="button"
+                    onClick={() => setIsCompanyDrawerOpen(!isCompanyDrawerOpen)}
+                    className="brutal-btn brutal-btn-outline w-full py-2 flex items-center justify-between px-3.5 text-xs"
+                  >
+                    <span>
+                      {isCompanyDrawerOpen
+                        ? "[-] CLOSE CIPC COMPANY FORM"
+                        : "[+] REGISTER CIPC RENOVATION COMPANY (TIED TO YOUR PERSONAL SA ID)"}
+                    </span>
+                    {isCompanyDrawerOpen ? (
+                      <ChevronUp className="w-4 h-4" />
+                    ) : (
+                      <ChevronDown className="w-4 h-4" />
+                    )}
+                  </button>
+
+                  {isCompanyDrawerOpen && (
+                    <form
+                      onSubmit={handleRegisterCompany}
+                      className="mt-2.5 p-3.5 border-2 border-iron-950 bg-mortar-50 space-y-3 text-xs transition-all duration-150"
+                    >
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <div>
+                          <label className="block font-bold text-iron-950 uppercase font-mono mb-1 text-[11px]">
+                            Registered Company Name
+                          </label>
+                          <input
+                            type="text"
+                            required
+                            value={companyName}
+                            onChange={(e) => setCompanyName(e.target.value)}
+                            className="w-full border-2 border-iron-950 rounded-none px-3 py-1.5 bg-white font-mono text-xs focus:outline-none"
+                          />
+                        </div>
+                        <div>
+                          <label className="block font-bold text-iron-950 uppercase font-mono mb-1 text-[11px]">
+                            CIPC Registration # (YYYY/NNNNNN/07)
+                          </label>
+                          <input
+                            type="text"
+                            required
+                            value={cipcNumber}
+                            onChange={(e) => setCipcNumber(e.target.value)}
+                            placeholder="2021/448102/07"
+                            className="w-full border-2 border-iron-950 rounded-none px-3 py-1.5 bg-white font-mono tabular-nums text-xs focus:outline-none"
+                          />
+                        </div>
+                        <div>
+                          <label className="block font-bold text-iron-950 uppercase font-mono mb-1 text-[11px]">
+                            CIDB Grade (Optional)
+                          </label>
+                          <input
+                            type="text"
+                            value={cidbGrading}
+                            onChange={(e) => setCidbGrading(e.target.value)}
+                            placeholder="e.g. 2GB"
+                            className="w-full border-2 border-iron-950 rounded-none px-3 py-1.5 bg-white font-mono text-xs focus:outline-none"
+                          />
+                        </div>
+                        <div>
+                          <label className="block font-bold text-iron-950 uppercase font-mono mb-1 text-[11px]">
+                            NHBRC Builder # (Optional)
+                          </label>
+                          <input
+                            type="text"
+                            value={nhbrcNumber}
+                            onChange={(e) => setNhbrcNumber(e.target.value)}
+                            placeholder="e.g. NHBRC-884012"
+                            className="w-full border-2 border-iron-950 rounded-none px-3 py-1.5 bg-white font-mono text-xs focus:outline-none"
+                          />
+                        </div>
+                      </div>
+
+                      <button
+                        type="submit"
+                        className="brutal-btn brutal-btn-primary px-4 py-2 text-xs"
+                      >
+                        Verify CIPC Company &amp; Bind to Director SA ID
+                      </button>
+                    </form>
+                  )}
+                </div>
+              )}
             </div>
 
             {/* SANDBOX DRAWER */}

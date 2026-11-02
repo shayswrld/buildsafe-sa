@@ -25,6 +25,7 @@ async function main() {
   await prisma.job.deleteMany();
   await prisma.tradeCertification.deleteMany();
   await prisma.workerProfile.deleteMany();
+  await prisma.builderCompany.deleteMany();
   await prisma.user.deleteMany();
   await prisma.platformConfig.deleteMany();
 
@@ -101,11 +102,13 @@ async function main() {
       workerProfile: {
         create: {
           id: "wp_sipho",
+          roleInCompany: "DIRECTOR_LEAD",
           vettingTier: "TIER_3_COC_CERTIFIED",
           saIdMasked: siphoId.maskedId!,
           saIdHash: siphoId.idHash!,
           selfieVerified: true,
           selfieVerifiedAt: new Date("2026-08-10T09:00:00Z"),
+          identityProviderRef: `SMILE_ID_DHA-NPR-${siphoId.idHash!.slice(0, 8).toUpperCase()}`,
           popiaConsentSigned: true,
           popiaConsentAt: new Date("2026-08-10T09:05:00Z"),
           huruVoucherCode: "HURU-ZA-88A10C",
@@ -113,6 +116,7 @@ async function main() {
           sapsStatus: "CLEARED",
           sapsCertificateRef: "SAPS-CRC-2026-841209",
           sapsClearedAt: new Date("2026-08-12T14:20:00Z"),
+          sapsExpiresAt: new Date("2027-08-12T14:20:00Z"),
           tradesJson: JSON.stringify(["PLUMBING", "TILING"]),
           nearestHardwareHub: "Builders Warehouse Fourways (Johannesburg)",
           yearsExperience: 11,
@@ -127,7 +131,9 @@ async function main() {
                 registrationNumber: "PIRB-44819-ZA",
                 tradeCategory: "PLUMBING",
                 status: "VERIFIED",
+                registryVerifyUrl: "https://www.pirb.co.za/verify-a-plumber/",
                 verifiedAt: new Date("2026-08-13T10:00:00Z"),
+                expiresAt: new Date("2027-08-13T10:00:00Z"),
                 notes: "Verified active Plumbing Industry Registration Board CoC issuer.",
               },
             ],
@@ -165,6 +171,7 @@ async function main() {
           sapsStatus: "CLEARED",
           sapsCertificateRef: "SAPS-CRC-2026-592031",
           sapsClearedAt: new Date("2026-09-03T11:15:00Z"),
+          sapsExpiresAt: new Date("2027-09-03T11:15:00Z"),
           tradesJson: JSON.stringify(["PAINTING", "WATERPROOFING", "TILING"]),
           nearestHardwareHub: "Builders Warehouse Strubensvalley (Roodepoort)",
           yearsExperience: 8,
@@ -205,6 +212,7 @@ async function main() {
           sapsStatus: "CLEARED",
           sapsCertificateRef: "SAPS-CRC-2026-710482",
           sapsClearedAt: new Date("2026-09-16T15:00:00Z"),
+          sapsExpiresAt: new Date("2027-09-16T15:00:00Z"),
           tradesJson: JSON.stringify(["BUILDING", "PAINTING", "TILING"]),
           nearestHardwareHub: "Builders Warehouse Fourways (Johannesburg)",
           yearsExperience: 5,
@@ -244,6 +252,7 @@ async function main() {
           sapsStatus: "CLEARED",
           sapsCertificateRef: "SAPS-CRC-2026-339104",
           sapsClearedAt: new Date("2026-07-22T12:00:00Z"),
+          sapsExpiresAt: new Date("2027-07-22T12:00:00Z"),
           tradesJson: JSON.stringify(["ELECTRICAL"]),
           nearestHardwareHub: "Builders Warehouse Centurion (Pretoria)",
           yearsExperience: 9,
@@ -258,7 +267,9 @@ async function main() {
                 registrationNumber: "DoEL-IE-29481",
                 tradeCategory: "ELECTRICAL",
                 status: "VERIFIED",
+                registryVerifyUrl: "https://www.labour.gov.za/",
                 verifiedAt: new Date("2026-07-23T11:30:00Z"),
+                expiresAt: new Date("2027-07-23T11:30:00Z"),
                 notes: "Verified Dept. of Employment & Labour Installation Electrician.",
               },
               {
@@ -266,6 +277,7 @@ async function main() {
                 registrationNumber: "SAQCC-LPG-8821",
                 tradeCategory: "PLUMBING",
                 status: "PENDING",
+                registryVerifyUrl: "https://www.saqccgas.co.za/search-practitioner/",
                 notes: "Submitted gas hob compliance card — awaiting Admin review.",
               },
             ],
@@ -308,6 +320,45 @@ async function main() {
           completedJobsCount: 0,
         },
       },
+    },
+  });
+
+  // 2b. Registered Renovations Company with Mandatory Per-Person Vetted Crew Roster
+  const dlaminiCompany = await prisma.builderCompany.create({
+    data: {
+      id: "company_dlamini_reno",
+      name: "Dlamini & Sons Home Renovations (Pty) Ltd",
+      tradingName: "Dlamini SafeBuild Renovations",
+      cipcRegistrationNumber: "2020/619402/07",
+      cipcStatus: "VERIFIED_IN_BUSINESS",
+      cidbGrading: "2GB",
+      nhbrcRegistrationNumber: "NHBRC-884012",
+      directorSaIdHash: siphoId.idHash!,
+      ownerWorkerProfileId: "wp_sipho",
+    },
+  });
+
+  await prisma.workerProfile.update({
+    where: { id: "wp_sipho" },
+    data: {
+      companyId: dlaminiCompany.id,
+      roleInCompany: "DIRECTOR_LEAD",
+    },
+  });
+
+  await prisma.workerProfile.update({
+    where: { id: "wp_gift" },
+    data: {
+      companyId: dlaminiCompany.id,
+      roleInCompany: "SITE_ASSISTANT",
+    },
+  });
+
+  await prisma.workerProfile.update({
+    where: { id: "wp_thabo" },
+    data: {
+      companyId: dlaminiCompany.id,
+      roleInCompany: "SITE_ASSISTANT",
     },
   });
 

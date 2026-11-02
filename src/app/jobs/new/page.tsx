@@ -10,6 +10,9 @@ import {
   ArrowRight,
   ArrowLeft,
   AlertCircle,
+  Users,
+  Calculator,
+  Percent,
 } from "lucide-react";
 import {
   SA_LOCATIONS,
@@ -37,9 +40,55 @@ export default function NewJobWizardPage() {
   );
   const [urgency, setUrgency] = useState<string>("THIS_WEEK");
   const [requiresCoC, setRequiresCoC] = useState<boolean>(false);
+  const [budgetFlexibility, setBudgetFlexibility] = useState<
+    "TARGET" | "MAXIMUM" | "FLEXIBLE"
+  >("TARGET");
   const [budgetEstimateZar, setBudgetEstimateZar] = useState<string>("2500");
+  const [labourEstimateZar, setLabourEstimateZar] = useState<string>("1600");
+  const [materialsEstimateZar, setMaterialsEstimateZar] = useState<string>("900");
   const [submitting, setSubmitting] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
+
+  const activeClient =
+    currentUser ||
+    personas.find((p) => p.role === "HOMEOWNER" || p.role === "DUAL") ||
+    personas[0];
+
+  const handleBudgetChange = (val: string) => {
+    setBudgetEstimateZar(val);
+    const num = parseFloat(val);
+    if (!isNaN(num) && num > 0) {
+      const labour = Math.round(num * 0.65);
+      const materials = Math.round(num * 0.35);
+      setLabourEstimateZar(String(labour));
+      setMaterialsEstimateZar(String(materials));
+    } else if (val === "" || num === 0) {
+      setLabourEstimateZar("0");
+      setMaterialsEstimateZar("0");
+    }
+  };
+
+  const handleLabourChange = (val: string) => {
+    setLabourEstimateZar(val);
+    const l = parseFloat(val) || 0;
+    const m = parseFloat(materialsEstimateZar) || 0;
+    setBudgetEstimateZar(String(l + m));
+  };
+
+  const handleMaterialsChange = (val: string) => {
+    setMaterialsEstimateZar(val);
+    const l = parseFloat(labourEstimateZar) || 0;
+    const m = parseFloat(val) || 0;
+    setBudgetEstimateZar(String(l + m));
+  };
+
+  const parsedLabour = Math.max(0, parseFloat(labourEstimateZar) || 0);
+  const parsedMaterials = Math.max(0, parseFloat(materialsEstimateZar) || 0);
+  const callOutDepositZar = selectedTrade.defaultCallOutZar || 250;
+  const buyerTrustFeeZar = Math.round(parsedLabour * 0.05 * 100) / 100;
+  const grossClientCommitmentZar =
+    Math.round((parsedLabour + parsedMaterials + buyerTrustFeeZar) * 100) / 100;
+  const remainingLabourEscrowZar = Math.max(0, parsedLabour - callOutDepositZar);
 
   const handleSelectTrade = (trade: TradeCategoryMeta) => {
     setSelectedTrade(trade);
@@ -97,11 +146,12 @@ export default function NewJobWizardPage() {
     setError(null);
 
     let homeownerId = currentUser?.id;
-    if (!currentUser || currentUser.role !== "HOMEOWNER") {
-      const firstHomeowner = personas.find((p) => p.role === "HOMEOWNER");
+    if (!homeownerId) {
+      const firstHomeowner =
+        personas.find((p) => p.role === "HOMEOWNER" || p.role === "DUAL") ||
+        personas[0];
       if (firstHomeowner) {
         homeownerId = firstHomeowner.id;
-        setCurrentUserId(firstHomeowner.id);
       }
     }
 
@@ -385,7 +435,18 @@ export default function NewJobWizardPage() {
             </button>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          {/* Explicit active persona confirmation */}
+          <div className="p-3 border-2 border-iron-950 bg-mortar-100 flex flex-wrap items-center justify-between gap-2 font-mono text-xs shadow-brutal-sm rounded-none">
+            <span className="font-bold text-iron-950 flex items-center gap-1.5">
+              <Users className="w-4 h-4 text-brick-600 shrink-0" />
+              Posting as: <strong className="text-brick-600">{activeClient?.name || "Client"}</strong> • <span>{activeClient?.suburb || SA_LOCATIONS[locationIndex]?.suburb || "Fourways"}</span>
+            </span>
+            <span className="border border-iron-950 bg-white px-2 py-0.5 text-[10px] font-bold uppercase">
+              {currentUser?.isDualRole ? "DUAL ACCOUNT" : "AUTHENTICATED CLIENT"}
+            </span>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <div>
               <label className="block font-mono text-xs font-bold uppercase text-iron-950 mb-1">
                 Suburb &amp; City
@@ -434,25 +495,224 @@ export default function NewJobWizardPage() {
                 Only <strong>{SA_LOCATIONS[locationIndex]?.suburb}</strong> is shown publicly.
               </p>
             </div>
-
-            <div>
-              <label className="block font-mono text-xs font-bold uppercase text-iron-950 mb-1">
-                Estimated Budget (Optional ZAR)
-              </label>
-              <input
-                type="number"
-                min={200}
-                step={100}
-                value={budgetEstimateZar}
-                onChange={(e) => setBudgetEstimateZar(e.target.value)}
-                className="w-full border-2 border-iron-950 bg-white px-3.5 py-2 font-sans text-sm rounded-none focus:outline-none focus:ring-2 focus:ring-brick-600 shadow-brutal-sm"
-              />
-            </div>
           </div>
 
-          <div className="border-2 border-iron-950 bg-brick-50 p-3.5 font-mono text-xs text-iron-900 flex flex-wrap items-center justify-between gap-2">
-            <span>Free to post. Credited Call-Out Deposit applies only on quote acceptance:</span>
-            <strong className="text-brick-700 tabular-nums">{formatZar(selectedTrade.defaultCallOutZar)}</strong>
+          {/* Interactive Affordability Breakdown Card */}
+          <div className="border-2 border-iron-950 bg-mortar-50 p-5 shadow-brutal-sm rounded-none space-y-4">
+            <div className="flex flex-wrap items-center justify-between gap-2 border-b-2 border-iron-950 pb-2">
+              <span className="font-mono text-xs font-bold text-iron-950 uppercase flex items-center gap-1.5">
+                <Calculator className="w-4 h-4 text-brick-600" />
+                Interactive Affordability Breakdown &amp; Escrow Estimator
+              </span>
+              <span className="font-mono text-[11px] font-bold bg-white border border-iron-950 px-2 py-0.5 text-iron-950">
+                TRADE: {selectedTrade.label.toUpperCase()}
+              </span>
+            </div>
+
+            {/* Budget Flexibility Selector */}
+            <div className="space-y-1.5">
+              <label className="block font-mono text-xs font-bold uppercase text-iron-950">
+                Budget Flexibility Profile:
+              </label>
+              <div className="grid grid-cols-3 gap-2">
+                <button
+                  type="button"
+                  onClick={() => setBudgetFlexibility("TARGET")}
+                  className={`py-2 px-3 font-mono text-xs font-bold uppercase border-2 border-iron-950 rounded-none transition-all duration-100 ${
+                    budgetFlexibility === "TARGET"
+                      ? "bg-brick-600 text-white shadow-brutal-sm"
+                      : "bg-white text-iron-950 hover:bg-mortar-200"
+                  }`}
+                >
+                  Target Budget
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setBudgetFlexibility("MAXIMUM")}
+                  className={`py-2 px-3 font-mono text-xs font-bold uppercase border-2 border-iron-950 rounded-none transition-all duration-100 ${
+                    budgetFlexibility === "MAXIMUM"
+                      ? "bg-brick-600 text-white shadow-brutal-sm"
+                      : "bg-white text-iron-950 hover:bg-mortar-200"
+                  }`}
+                >
+                  Maximum Ceiling
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setBudgetFlexibility("FLEXIBLE")}
+                  className={`py-2 px-3 font-mono text-xs font-bold uppercase border-2 border-iron-950 rounded-none transition-all duration-100 ${
+                    budgetFlexibility === "FLEXIBLE"
+                      ? "bg-brick-600 text-white shadow-brutal-sm"
+                      : "bg-white text-iron-950 hover:bg-mortar-200"
+                  }`}
+                >
+                  Flexible / Estimating
+                </button>
+              </div>
+            </div>
+
+            {/* Numeric Inputs: Total Budget, Labour Estimate, Materials Estimate */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-1">
+              <div>
+                <label className="block font-mono text-xs font-bold uppercase text-iron-950 mb-1">
+                  Estimated Total Budget (ZAR)
+                </label>
+                <input
+                  type="number"
+                  min={0}
+                  step={100}
+                  value={budgetEstimateZar}
+                  onChange={(e) => handleBudgetChange(e.target.value)}
+                  placeholder="2500"
+                  className="w-full border-2 border-iron-950 bg-white px-3.5 py-2 font-mono text-sm rounded-none focus:outline-none focus:ring-2 focus:ring-brick-600 shadow-brutal-sm tabular-nums"
+                />
+              </div>
+
+              <div>
+                <label className="block font-mono text-xs font-bold uppercase text-iron-950 mb-1">
+                  Estimated Labour (ZAR)
+                </label>
+                <input
+                  type="number"
+                  min={0}
+                  step={50}
+                  value={labourEstimateZar}
+                  onChange={(e) => handleLabourChange(e.target.value)}
+                  placeholder="1600"
+                  className="w-full border-2 border-iron-950 bg-white px-3.5 py-2 font-mono text-sm rounded-none focus:outline-none focus:ring-2 focus:ring-brick-600 shadow-brutal-sm tabular-nums"
+                />
+              </div>
+
+              <div>
+                <label className="block font-mono text-xs font-bold uppercase text-iron-950 mb-1">
+                  Estimated Materials (ZAR)
+                </label>
+                <input
+                  type="number"
+                  min={0}
+                  step={50}
+                  value={materialsEstimateZar}
+                  onChange={(e) => handleMaterialsChange(e.target.value)}
+                  placeholder="900"
+                  className="w-full border-2 border-iron-950 bg-white px-3.5 py-2 font-mono text-sm rounded-none focus:outline-none focus:ring-2 focus:ring-brick-600 shadow-brutal-sm tabular-nums"
+                />
+              </div>
+            </div>
+
+            {/* Calculations and Live Preview Grid */}
+            <div className="border-2 border-iron-950 bg-white p-4 space-y-3 rounded-none">
+              <div className="font-mono text-xs font-bold uppercase text-iron-950 tracking-wider">
+                Live Affordability &amp; Escrow Calculations:
+              </div>
+
+              {/* Proportional Split Bar */}
+              {parsedLabour + parsedMaterials > 0 && (
+                <div className="space-y-1">
+                  <div className="h-4 border-2 border-iron-950 flex overflow-hidden rounded-none">
+                    <div
+                      style={{
+                        width: `${Math.round(
+                          (parsedLabour / (parsedLabour + parsedMaterials)) * 100
+                        )}%`,
+                      }}
+                      className="bg-brick-600 transition-all duration-150"
+                      title="Labour Proportion"
+                    />
+                    <div
+                      style={{
+                        width: `${Math.round(
+                          (parsedMaterials / (parsedLabour + parsedMaterials)) * 100
+                        )}%`,
+                      }}
+                      className="bg-iron-700 transition-all duration-150"
+                      title="Materials Proportion"
+                    />
+                  </div>
+                  <div className="flex justify-between font-mono text-[10px] text-iron-700">
+                    <span className="flex items-center gap-1">
+                      <span className="w-2 h-2 bg-brick-600 inline-block" />
+                      Labour: {formatZar(parsedLabour)} (
+                      {Math.round(
+                        (parsedLabour / (parsedLabour + parsedMaterials)) * 100
+                      )}
+                      %)
+                    </span>
+                    <span className="flex items-center gap-1">
+                      <span className="w-2 h-2 bg-iron-700 inline-block" />
+                      Materials: {formatZar(parsedMaterials)} (
+                      {Math.round(
+                        (parsedMaterials / (parsedLabour + parsedMaterials)) * 100
+                      )}
+                      %)
+                    </span>
+                  </div>
+                </div>
+              )}
+
+              {/* Breakdown Metric Rows */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2 font-mono text-xs">
+                <div className="p-2 border border-iron-300 bg-mortar-50">
+                  <span className="text-[10px] text-iron-600 block uppercase font-bold">
+                    Call-Out Deposit
+                  </span>
+                  <span className="font-bold text-brick-600 tabular-nums">
+                    {formatZar(callOutDepositZar)}
+                  </span>
+                  <span className="text-[10px] text-iron-500 block">
+                    100% credited on hiring
+                  </span>
+                </div>
+
+                <div className="p-2 border border-iron-300 bg-mortar-50">
+                  <span className="text-[10px] text-iron-600 block uppercase font-bold">
+                    Remaining Labour Escrow
+                  </span>
+                  <span className="font-bold text-iron-950 tabular-nums">
+                    {formatZar(remainingLabourEscrowZar)}
+                  </span>
+                  <span className="text-[10px] text-iron-500 block">
+                    Held until sign-off
+                  </span>
+                </div>
+
+                <div className="p-2 border border-iron-300 bg-mortar-50">
+                  <span className="text-[10px] text-iron-600 block uppercase font-bold">
+                    Buyer Trust Fee (5%)
+                  </span>
+                  <span className="font-bold text-iron-950 tabular-nums">
+                    {formatZar(buyerTrustFeeZar)}
+                  </span>
+                  <span className="text-[10px] text-iron-500 block">
+                    5% of labour (R0 on materials)
+                  </span>
+                </div>
+
+                <div className="p-2 border border-iron-300 bg-mortar-50">
+                  <span className="text-[10px] text-iron-600 block uppercase font-bold">
+                    Total Estimated Escrow
+                  </span>
+                  <span className="font-bold text-brick-600 tabular-nums">
+                    {formatZar(grossClientCommitmentZar)}
+                  </span>
+                  <span className="text-[10px] text-iron-500 block">
+                    Gross commitment
+                  </span>
+                </div>
+              </div>
+
+              {/* Anti-Markup Hardware Guarantee Card */}
+              <div className="p-3 border-2 border-emerald-800 bg-emerald-50 text-emerald-950 font-mono text-xs space-y-1 rounded-none shadow-brutal-sm">
+                <div className="flex items-center gap-1.5 font-bold uppercase text-[11px] text-emerald-900">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-700 shrink-0" />
+                  Anti-Markup Guarantee: 0% markup on hardware receipts
+                </div>
+                <p className="text-[11px] text-emerald-800 leading-normal">
+                  R{callOutDepositZar} call-out deposit credited in full toward labour upon hiring.
+                  Zero commission or markup on hardware store receipts (Builders Warehouse, Cashbuild).
+                  What the artisan pays at checkout is what you pay.
+                </p>
+              </div>
+            </div>
           </div>
 
           <div className="pt-3 border-t-2 border-iron-950 flex items-center justify-between gap-4">

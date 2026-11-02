@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { verifyGateCheckInCode } from "@/lib/security/gate-otp";
+import { validateGateArrivalManifest } from "@/lib/governance";
 
 export async function POST(
   req: NextRequest,
@@ -10,8 +11,16 @@ export async function POST(
 
   try {
     const body = await req.json();
-    const { action, gateVisitId, submittedCode, faceMatchConfirmed, incidentReport } =
-      body;
+    const {
+      action,
+      gateVisitId,
+      submittedCode,
+      faceMatchConfirmed,
+      verifiedCrewProfileIds,
+      arrivingHeadcount,
+      unannouncedPersonnelPresent,
+      incidentReport,
+    } = body;
 
     const visit = await prisma.gateVisit.findUnique({
       where: { id: gateVisitId },
@@ -26,12 +35,24 @@ export async function POST(
     }
 
     if (action === "VERIFY_ARRIVAL") {
-      if (!faceMatchConfirmed) {
+      const expectedCrewProfileIds = visit.crewMembers.map(
+        (cm) => cm.workerProfileId
+      );
+
+      const manifestCheck = validateGateArrivalManifest({
+        faceMatchConfirmed: Boolean(faceMatchConfirmed),
+        expectedCrewProfileIds,
+        verifiedCrewProfileIds: Array.isArray(verifiedCrewProfileIds)
+          ? verifiedCrewProfileIds
+          : undefined,
+        arrivingHeadcount:
+          arrivingHeadcount !== undefined ? Number(arrivingHeadcount) : undefined,
+        unannouncedPersonnelPresent: Boolean(unannouncedPersonnelPresent),
+      });
+
+      if (!manifestCheck.allowed) {
         return NextResponse.json(
-          {
-            error:
-              "Please visually confirm that the person at your gate matches the SAPS-cleared photo badge (and registered crew manifest).",
-          },
+          { error: manifestCheck.reason },
           { status: 400 }
         );
       }
@@ -66,7 +87,10 @@ export async function POST(
         data: { status: "WORKER_ON_SITE" },
       });
 
-      return NextResponse.json({ success: true });
+      return NextResponse.json({
+        success: true,
+        verifiedHeadcount: 1 + expectedCrewProfileIds.length,
+      });
     }
 
     if (action === "CHECK_OUT") {
