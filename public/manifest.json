@@ -1,0 +1,10 @@
+{
+  "name": "BuildSafe SA — Vetted Builders & Skilled Artisans",
+  "short_name": "BuildSafe SA",
+  "description": "Connect with SAPS biometric-cleared South African builders, plumbers, electricians, painters & tilers protected by Milestone Escrow and Gate OTPs.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#064e3b",
+  "theme_color": "#059669",
+  "orientation": "portrait-primary"
+}

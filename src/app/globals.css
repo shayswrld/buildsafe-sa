@@ -1,0 +1,120 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: light;
+}
+
+body {
+  @apply bg-[#F8F6F2] text-[#141416] antialiased;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  letter-spacing: -0.01em;
+}
+
+@layer components {
+  /* Raw Grotesque Sans Headers */
+  .brutal-heading {
+    @apply font-black tracking-tight text-iron-950;
+  }
+
+  /* Section Labels (// 01 · ...) */
+  .brutal-label {
+    @apply font-mono text-xs font-bold uppercase tracking-widest text-brick-600;
+  }
+
+  /* Monospace Numbers & Metrics */
+  .brutal-mono {
+    @apply font-mono tabular-nums;
+  }
+
+  /* Sharp Brutalist Border & Container */
+  .brutal-border {
+    @apply border-2 border-iron-950 rounded-none;
+  }
+
+  .brutal-card {
+    @apply border-2 border-iron-950 bg-white rounded-none shadow-brutal;
+  }
+
+  .brutal-card-sm {
+    @apply border-2 border-iron-950 bg-white rounded-none shadow-brutal-sm;
+  }
+
+  /* Tactile Mechanical Button (100ms depression) */
+  .brutal-btn {
+    @apply border-2 border-iron-950 rounded-none font-bold text-xs uppercase tracking-wider
+      transition-all duration-100 ease-out shadow-brutal-sm
+      hover:-translate-x-[1px] hover:-translate-y-[1px] hover:shadow-brutal
+      active:translate-x-[2px] active:translate-y-[2px] active:shadow-none
+      focus:outline-none focus:ring-2 focus:ring-brick-600 focus:ring-offset-1;
+  }
+
+  .brutal-btn-primary {
+    @apply brutal-btn bg-brick-600 text-white hover:bg-brick-700;
+  }
+
+  .brutal-btn-dark {
+    @apply brutal-btn bg-iron-950 text-white hover:bg-iron-900;
+  }
+
+  .brutal-btn-outline {
+    @apply brutal-btn bg-white text-iron-950 hover:bg-mortar-200;
+  }
+
+  /* 150ms Accordion & Drawer Disclosures */
+  .brutal-accordion {
+    @apply transition-all duration-150 ease-in-out;
+  }
+
+  .brutal-accordion-trigger {
+    @apply cursor-pointer select-none transition-colors duration-150;
+  }
+
+  /* Verified Stamp Animation & Component */
+  .verified-stamp {
+    @apply inline-flex items-center gap-1 font-mono text-xs font-black uppercase tracking-wider
+      border-2 border-emerald-700 text-emerald-800 bg-emerald-50 px-2 py-0.5 rounded-none
+      shadow-brutal-sm;
+    animation: stampSnap 150ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  }
+}
+
+/* Mechanical Keyframes */
+@keyframes stampSnap {
+  0% {
+    transform: scale(0.92);
+    opacity: 0.7;
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+@keyframes hazardFlash {
+  0% {
+    border-color: #D97706;
+    background-color: #FFFBEB;
+  }
+  100% {
+    border-color: #141416;
+    background-color: #FEF3C7;
+  }
+}
+
+/* Accessibility: Prefers-Reduced-Motion Reset */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+
+  .brutal-btn {
+    transform: none !important;
+  }
+}
