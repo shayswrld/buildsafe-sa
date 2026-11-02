@@ -7,8 +7,9 @@ import {
   CheckCircle2,
   MapPin,
   Lock,
-  Sparkles,
   ArrowRight,
+  ArrowLeft,
+  AlertCircle,
 } from "lucide-react";
 import {
   SA_LOCATIONS,
@@ -21,6 +22,8 @@ import { usePersona } from "@/components/PersonaContext";
 export default function NewJobWizardPage() {
   const router = useRouter();
   const { currentUser, personas, setCurrentUserId } = usePersona();
+
+  const [currentStep, setCurrentStep] = useState<1 | 2 | 3>(1);
 
   const [selectedTrade, setSelectedTrade] = useState<TradeCategoryMeta>(
     TRADE_CATEGORIES[0]
@@ -43,9 +46,10 @@ export default function NewJobWizardPage() {
     setSelectedChips([]);
     setRequiresCoC(false);
     setTitle("");
+    setDescription("");
   };
 
-  const toggleChip = (chipLabel: string, chipCoC?: boolean) => {
+  const toggleChip = (chipLabel: string) => {
     const exists = selectedChips.includes(chipLabel);
     const updated = exists
       ? selectedChips.filter((c) => c !== chipLabel)
@@ -55,8 +59,10 @@ export default function NewJobWizardPage() {
     if (!title || selectedChips.length === 0) {
       setTitle(updated[0] ?? "");
     }
+    if (!description && updated.length > 0) {
+      setDescription(`Need assistance with: ${updated.join(", ")}.`);
+    }
 
-    // Auto-enable statutory CoC toggle if any selected task legally requires a CoC
     const needsStatutoryCoC = updated.some((lbl) => {
       const found = selectedTrade.commonProblems.find((p) => p.label === lbl);
       return Boolean(found?.requiresCoC);
@@ -64,11 +70,32 @@ export default function NewJobWizardPage() {
     setRequiresCoC(needsStatutoryCoC);
   };
 
+  const proceedToStep2 = () => {
+    if (!selectedTrade) {
+      setError("Please select a trade category.");
+      return;
+    }
+    setError(null);
+    setCurrentStep(2);
+  };
+
+  const proceedToStep3 = () => {
+    if (!title.trim()) {
+      setError("Please enter a job headline.");
+      return;
+    }
+    if (!description.trim()) {
+      setError("Please describe the work needed.");
+      return;
+    }
+    setError(null);
+    setCurrentStep(3);
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
 
-    // Ensure a Homeowner persona is posting (or fallback to Lerato if currently viewing as Worker/Admin)
     let homeownerId = currentUser?.id;
     if (!currentUser || currentUser.role !== "HOMEOWNER") {
       const firstHomeowner = personas.find((p) => p.role === "HOMEOWNER");
@@ -82,12 +109,10 @@ export default function NewJobWizardPage() {
     const finalTitle =
       title.trim() ||
       selectedChips[0] ||
-      `${selectedTrade.label} Request in ${loc.suburb}`;
+      `${selectedTrade.label} in ${loc.suburb}`;
     const finalDesc =
       description.trim() ||
-      `Looking for a SAPS-cleared ${selectedTrade.label.toLowerCase()} artisan for: ${
-        selectedChips.join(", ") || finalTitle
-      }.`;
+      `${selectedTrade.label}: ${selectedChips.join(", ") || finalTitle}.`;
 
     setSubmitting(true);
     try {
@@ -123,31 +148,76 @@ export default function NewJobWizardPage() {
   };
 
   return (
-    <div className="max-w-4xl mx-auto px-4 py-8">
-      <div className="mb-6">
-        <span className="inline-flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-emerald-700 bg-emerald-100 px-2.5 py-1 rounded-full">
-          <Sparkles className="w-3.5 h-3.5" />
-          60-Second Guided Job Logger
-        </span>
-        <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 mt-2">
-          What do you need built, fixed, or renovated?
+    <div className="max-w-4xl mx-auto px-4 sm:px-6 py-6 space-y-6">
+      {/* Compact Header */}
+      <div className="border-b-2 border-iron-950 pb-4 flex flex-wrap items-center justify-between gap-3">
+        <h1 className="text-2xl sm:text-3xl font-black text-iron-950 uppercase tracking-tight">
+          Post a Job
         </h1>
-        <p className="text-slate-600 text-sm mt-1">
-          No phone spam—your street number and mobile stay masked until you pick a
-          SAPS-cleared artisan and lock the Call-Out Deposit in Escrow.
-        </p>
+        <span className="border-2 border-iron-950 bg-white px-2.5 py-1 font-mono text-xs font-bold text-iron-950 uppercase shadow-brutal-sm">
+          STEP {currentStep} OF 3
+        </span>
       </div>
 
-      <form onSubmit={handleSubmit} className="space-y-6">
-        {/* Step 1: Select Trade */}
-        <div className="bg-white rounded-2xl p-6 border border-slate-200 shadow-sm space-y-4">
-          <div className="flex items-center justify-between">
-            <h2 className="font-bold text-slate-900 text-lg">
-              1. Tap the Skilled Trade Needed
-            </h2>
-            <span className="text-xs text-slate-500">Step 1 of 3</span>
-          </div>
+      {/* 3-Step Stepper Bar */}
+      <div className="grid grid-cols-3 gap-2 border-2 border-iron-950 bg-mortar-200 p-2 shadow-brutal-sm rounded-none">
+        <button
+          type="button"
+          onClick={() => setCurrentStep(1)}
+          className={`p-2.5 font-mono text-xs font-bold uppercase tracking-wider text-left border-2 border-iron-950 transition-all duration-150 rounded-none flex items-center justify-between ${
+            currentStep === 1
+              ? "bg-brick-600 text-white shadow-brutal-sm"
+              : "bg-white text-iron-950 hover:bg-mortar-100"
+          }`}
+        >
+          <span className="truncate">01 // TRADE</span>
+          {currentStep > 1 && <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />}
+        </button>
 
+        <button
+          type="button"
+          onClick={() => {
+            if (selectedTrade) setCurrentStep(2);
+          }}
+          disabled={!selectedTrade}
+          className={`p-2.5 font-mono text-xs font-bold uppercase tracking-wider text-left border-2 border-iron-950 transition-all duration-150 rounded-none flex items-center justify-between disabled:opacity-50 ${
+            currentStep === 2
+              ? "bg-brick-600 text-white shadow-brutal-sm"
+              : "bg-white text-iron-950 hover:bg-mortar-100"
+          }`}
+        >
+          <span className="truncate">02 // SCOPE</span>
+          {currentStep > 2 && <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />}
+        </button>
+
+        <button
+          type="button"
+          onClick={() => {
+            if (selectedTrade && title.trim() && description.trim()) {
+              setCurrentStep(3);
+            }
+          }}
+          disabled={!selectedTrade || !title.trim() || !description.trim()}
+          className={`p-2.5 font-mono text-xs font-bold uppercase tracking-wider text-left border-2 border-iron-950 transition-all duration-150 rounded-none flex items-center justify-between disabled:opacity-50 ${
+            currentStep === 3
+              ? "bg-brick-600 text-white shadow-brutal-sm"
+              : "bg-white text-iron-950 hover:bg-mortar-100"
+          }`}
+        >
+          <span className="truncate">03 // LOCATION</span>
+        </button>
+      </div>
+
+      {error && (
+        <div className="p-3.5 border-2 border-iron-950 bg-rose-50 text-rose-900 text-xs font-bold font-mono flex items-center gap-2 shadow-brutal-sm rounded-none">
+          <AlertCircle className="w-4 h-4 text-rose-700 shrink-0" />
+          <span>{error}</span>
+        </div>
+      )}
+
+      {/* STEP 1: Select Trade */}
+      {currentStep === 1 && (
+        <div className="border-2 border-iron-950 bg-white p-6 shadow-brutal rounded-none space-y-5">
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
             {TRADE_CATEGORIES.map((trade) => {
               const active = selectedTrade.slug === trade.slug;
@@ -156,40 +226,62 @@ export default function NewJobWizardPage() {
                   key={trade.slug}
                   type="button"
                   onClick={() => handleSelectTrade(trade)}
-                  className={`text-left p-3.5 rounded-xl border transition ${
+                  className={`text-left p-4 border-2 border-iron-950 transition-all duration-100 rounded-none flex flex-col justify-between gap-2 ${
                     active
-                      ? "border-emerald-600 bg-emerald-50/70 ring-2 ring-emerald-500/30"
-                      : "border-slate-200 hover:border-slate-300 bg-white"
+                      ? "bg-brick-50 border-brick-600 shadow-brutal ring-2 ring-brick-600"
+                      : "bg-white hover:bg-mortar-100 shadow-brutal-sm"
                   }`}
                 >
-                  <div className="font-bold text-slate-900 text-sm flex items-center justify-between">
+                  <div className="flex items-center justify-between font-black text-sm text-iron-950 uppercase">
                     <span>{trade.label}</span>
-                    {active && (
-                      <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
-                    )}
+                    {active && <CheckCircle2 className="w-4 h-4 text-brick-600 shrink-0" />}
                   </div>
-                  <p className="text-xs text-slate-500 mt-1 line-clamp-2">
-                    {trade.shortDesc}
-                  </p>
+
+                  <div className="pt-2 border-t border-iron-200 flex items-center justify-between font-mono text-[11px] text-iron-800">
+                    <span>CALL-OUT:</span>
+                    <span className="font-bold tabular-nums text-brick-600">
+                      {formatZar(trade.defaultCallOutZar)}
+                    </span>
+                  </div>
                 </button>
               );
             })}
           </div>
-        </div>
 
-        {/* Step 2: Quick Problem Chips & Scope */}
-        <div className="bg-white rounded-2xl p-6 border border-slate-200 shadow-sm space-y-4">
-          <div className="flex items-center justify-between">
-            <h2 className="font-bold text-slate-900 text-lg">
-              2. Tap Common Tasks &amp; Describe Scope
-            </h2>
-            <span className="text-xs text-slate-500">Step 2 of 3</span>
+          <div className="pt-3 border-t-2 border-iron-950 flex justify-end">
+            <button
+              type="button"
+              onClick={proceedToStep2}
+              className="brutal-btn-primary px-6 py-2.5 text-xs font-bold inline-flex items-center gap-2"
+            >
+              <span>NEXT: SCOPE</span>
+              <ArrowRight className="w-4 h-4" />
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* STEP 2: Scope */}
+      {currentStep === 2 && (
+        <div className="border-2 border-iron-950 bg-white p-6 shadow-brutal rounded-none space-y-5">
+          <div className="p-2.5 bg-mortar-100 border-2 border-iron-950 flex items-center justify-between font-mono text-xs">
+            <span>
+              <strong>{selectedTrade.label.toUpperCase()}</strong> • Call-Out:{" "}
+              <strong className="tabular-nums">{formatZar(selectedTrade.defaultCallOutZar)}</strong>
+            </span>
+            <button
+              type="button"
+              onClick={() => setCurrentStep(1)}
+              className="text-brick-600 font-bold underline uppercase"
+            >
+              [CHANGE]
+            </button>
           </div>
 
-          <div>
-            <p className="text-xs font-medium text-slate-500 mb-2">
-              Quick-select common {selectedTrade.label.toLowerCase()} tasks:
-            </p>
+          <div className="space-y-2">
+            <label className="block font-mono text-xs font-bold uppercase text-iron-950">
+              Quick-Select Common Tasks:
+            </label>
             <div className="flex flex-wrap gap-2">
               {selectedTrade.commonProblems.map((prob) => {
                 const chosen = selectedChips.includes(prob.label);
@@ -197,140 +289,155 @@ export default function NewJobWizardPage() {
                   <button
                     key={prob.label}
                     type="button"
-                    onClick={() => toggleChip(prob.label, prob.requiresCoC)}
-                    className={`px-3 py-1.5 rounded-full text-xs font-medium border transition ${
+                    onClick={() => toggleChip(prob.label)}
+                    className={`px-3 py-1.5 font-mono text-xs font-bold border-2 border-iron-950 transition-all duration-100 rounded-none ${
                       chosen
-                        ? "bg-slate-900 text-white border-slate-900"
-                        : "bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100"
+                        ? "bg-iron-950 text-white shadow-brutal-sm"
+                        : "bg-white text-iron-950 hover:bg-mortar-200"
                     }`}
                   >
-                    {prob.label}
-                    {prob.requiresCoC ? " • CoC" : ""}
+                    <span>{prob.label}</span>
+                    {prob.requiresCoC && (
+                      <span className="ml-1 text-[10px] text-safety-400 font-black">• CoC</span>
+                    )}
                   </button>
                 );
               })}
             </div>
           </div>
 
-          <div className="grid grid-cols-1 gap-4 pt-1">
+          <div className="space-y-4">
             <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1">
-                Short Job Headline
+              <label className="block font-mono text-xs font-bold uppercase text-iron-950 mb-1">
+                Job Headline *
               </label>
               <input
                 type="text"
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
-                placeholder={`e.g. ${selectedTrade.commonProblems[0]?.label}`}
-                className="w-full rounded-xl border border-slate-300 px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                placeholder={selectedTrade.commonProblems[0]?.label || "Job summary"}
+                className="w-full border-2 border-iron-950 bg-white px-3.5 py-2 font-sans text-sm rounded-none focus:outline-none focus:ring-2 focus:ring-brick-600 shadow-brutal-sm"
               />
             </div>
 
             <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1">
-                Extra Details (Rooms, approx size, or materials you already bought at Builders)
+              <label className="block font-mono text-xs font-bold uppercase text-iron-950 mb-1">
+                Scope &amp; Details *
               </label>
               <textarea
                 rows={3}
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
-                placeholder="e.g. Have already bought paint & primer at Builders Fourways, need damp wall scraped, filled, and 2 neat coats applied."
-                className="w-full rounded-xl border border-slate-300 px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                placeholder="Dimensions, rooms, or materials already on site..."
+                className="w-full border-2 border-iron-950 bg-white px-3.5 py-2 font-sans text-sm rounded-none focus:outline-none focus:ring-2 focus:ring-brick-600 shadow-brutal-sm"
               />
             </div>
           </div>
 
-          {/* Statutory CoC Compliance Toggle */}
-          <label className="flex items-start gap-3 p-3.5 rounded-xl bg-amber-50 border border-amber-200 cursor-pointer">
+          <label className="flex items-center gap-3 p-3.5 border-2 border-iron-950 bg-safety-50 shadow-brutal-sm rounded-none cursor-pointer">
             <input
               type="checkbox"
               checked={requiresCoC}
               onChange={(e) => setRequiresCoC(e.target.checked)}
-              className="mt-1 rounded text-amber-600"
+              className="rounded-none accent-[#B93815] w-4 h-4 border-2 border-iron-950"
             />
-            <div className="text-xs">
-              <div className="font-bold text-amber-950 flex items-center gap-1.5">
-                <ShieldAlert className="w-4 h-4 text-amber-600" />
-                Require Tier 3 Statutory Certificate of Compliance (CoC) Specialist
-              </div>
-              <p className="text-amber-800 mt-0.5">
-                Restricts quotes strictly to licensed{" "}
-                {selectedTrade.cocLabel || "PIRB / ECB Wireman / NHBRC"} pros for
-                regulated geyser, electrical DB board, or structural work. Leave
-                unchecked for general skilled painting, tiling, carpentry, or minor
-                repairs.
-              </p>
-            </div>
+            <span className="font-mono text-xs font-bold text-iron-950 uppercase flex items-center gap-1.5">
+              <ShieldAlert className="w-4 h-4 text-safety-600 shrink-0" />
+              Require Tier 3 Statutory CoC ({selectedTrade.cocLabel || "PIRB / ECB / NHBRC"})
+            </span>
           </label>
-        </div>
 
-        {/* Step 3: Location, Privacy & Escrow Call-Out Preview */}
-        <div className="bg-white rounded-2xl p-6 border border-slate-200 shadow-sm space-y-4">
-          <div className="flex items-center justify-between">
-            <h2 className="font-bold text-slate-900 text-lg">
-              3. Suburb, Timing &amp; Protected Call-Out
-            </h2>
-            <span className="text-xs text-slate-500">Step 3 of 3</span>
+          <div className="pt-3 border-t-2 border-iron-950 flex items-center justify-between gap-4">
+            <button
+              type="button"
+              onClick={() => setCurrentStep(1)}
+              className="brutal-btn-outline px-4 py-2.5 text-xs font-bold inline-flex items-center gap-1.5"
+            >
+              <ArrowLeft className="w-4 h-4" />
+              <span>BACK</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={proceedToStep3}
+              className="brutal-btn-primary px-6 py-2.5 text-xs font-bold inline-flex items-center gap-1.5"
+            >
+              <span>NEXT: LOCATION</span>
+              <ArrowRight className="w-4 h-4" />
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* STEP 3: Location & Submit */}
+      {currentStep === 3 && (
+        <form onSubmit={handleSubmit} className="border-2 border-iron-950 bg-white p-6 shadow-brutal rounded-none space-y-5">
+          <div className="p-2.5 bg-mortar-100 border-2 border-iron-950 flex flex-wrap items-center justify-between gap-2 font-mono text-xs">
+            <span>
+              <strong>{selectedTrade.label.toUpperCase()}:</strong> {title}
+            </span>
+            <button
+              type="button"
+              onClick={() => setCurrentStep(2)}
+              className="text-brick-600 font-bold underline uppercase"
+            >
+              [EDIT SCOPE]
+            </button>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1">
-                Suburb &amp; Metro Area
-              </label>
-              <div className="relative">
-                <select
-                  value={locationIndex}
-                  onChange={(e) => setLocationIndex(Number(e.target.value))}
-                  className="w-full rounded-xl border border-slate-300 px-3.5 py-2.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                >
-                  {SA_LOCATIONS.map((loc, idx) => (
-                    <option key={`${loc.suburb}-${loc.city}`} value={idx}>
-                      {loc.suburb}, {loc.city}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            </div>
-
-            <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1">
-                When do you need it done?
+              <label className="block font-mono text-xs font-bold uppercase text-iron-950 mb-1">
+                Suburb &amp; City
               </label>
               <select
-                value={urgency}
-                onChange={(e) => setUrgency(e.target.value)}
-                className="w-full rounded-xl border border-slate-300 px-3.5 py-2.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                value={locationIndex}
+                onChange={(e) => setLocationIndex(Number(e.target.value))}
+                className="w-full border-2 border-iron-950 bg-white px-3.5 py-2 font-sans text-sm rounded-none focus:outline-none focus:ring-2 focus:ring-brick-600 shadow-brutal-sm"
               >
-                <option value="EMERGENCY_TODAY">Urgent — Today / Tomorrow</option>
-                <option value="THIS_WEEK">This Week</option>
-                <option value="FLEXIBLE_RENOVATION">
-                  Flexible — Comparing Renovation Quotes
-                </option>
+                {SA_LOCATIONS.map((loc, idx) => (
+                  <option key={`${loc.suburb}-${loc.city}`} value={idx}>
+                    {loc.suburb}, {loc.city}
+                  </option>
+                ))}
               </select>
             </div>
 
             <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1 flex items-center gap-1">
-                <Lock className="w-3.5 h-3.5 text-emerald-600" />
-                Exact Street / Complex Address (Encrypted)
+              <label className="block font-mono text-xs font-bold uppercase text-iron-950 mb-1">
+                Urgency
+              </label>
+              <select
+                value={urgency}
+                onChange={(e) => setUrgency(e.target.value)}
+                className="w-full border-2 border-iron-950 bg-white px-3.5 py-2 font-sans text-sm rounded-none focus:outline-none focus:ring-2 focus:ring-brick-600 shadow-brutal-sm"
+              >
+                <option value="EMERGENCY_TODAY">Emergency — Today</option>
+                <option value="THIS_WEEK">Standard — This Week</option>
+                <option value="FLEXIBLE_RENOVATION">Flexible — Comparing Quotes</option>
+              </select>
+            </div>
+
+            <div>
+              <label className="block font-mono text-xs font-bold uppercase text-iron-950 mb-1 flex items-center gap-1.5">
+                <Lock className="w-3.5 h-3.5 text-brick-600" />
+                Street Address (Hidden Until Escrow)
               </label>
               <input
                 type="text"
                 value={streetAddress}
                 onChange={(e) => setStreetAddress(e.target.value)}
-                className="w-full rounded-xl border border-slate-300 px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                className="w-full border-2 border-iron-950 bg-white px-3.5 py-2 font-sans text-sm rounded-none focus:outline-none focus:ring-2 focus:ring-brick-600 shadow-brutal-sm"
               />
-              <p className="text-[11px] text-slate-500 mt-1 flex items-center gap-1">
-                <MapPin className="w-3 h-3" />
-                Workers only see <strong>{SA_LOCATIONS[locationIndex]?.suburb}</strong>{" "}
-                until you accept a quote &amp; fund Escrow.
+              <p className="font-mono text-[11px] text-iron-600 mt-1 flex items-center gap-1">
+                <MapPin className="w-3 h-3 text-brick-600 shrink-0" />
+                Only <strong>{SA_LOCATIONS[locationIndex]?.suburb}</strong> is shown publicly.
               </p>
             </div>
 
             <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1">
-                Rough Labour + Material Budget (Optional ZAR)
+              <label className="block font-mono text-xs font-bold uppercase text-iron-950 mb-1">
+                Estimated Budget (Optional ZAR)
               </label>
               <input
                 type="number"
@@ -338,42 +445,37 @@ export default function NewJobWizardPage() {
                 step={100}
                 value={budgetEstimateZar}
                 onChange={(e) => setBudgetEstimateZar(e.target.value)}
-                className="w-full rounded-xl border border-slate-300 px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                className="w-full border-2 border-iron-950 bg-white px-3.5 py-2 font-sans text-sm rounded-none focus:outline-none focus:ring-2 focus:ring-brick-600 shadow-brutal-sm"
               />
             </div>
           </div>
 
-          <div className="p-4 rounded-xl bg-emerald-50 border border-emerald-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-            <div className="text-xs text-emerald-950 space-y-0.5">
-              <div className="font-bold text-sm">
-                Posting is 100% Free • Credited Call-Out Deposit:{" "}
-                {formatZar(selectedTrade.defaultCallOutZar)}
-              </div>
-              <p className="text-emerald-800">
-                You pay nothing right now. When you choose a SAPS-cleared artisan,
-                locking {formatZar(selectedTrade.defaultCallOutZar)} (or the full
-                quote) in Escrow unlocks your Gate Check-In OTP and credits toward
-                their labour.
-              </p>
-            </div>
+          <div className="border-2 border-iron-950 bg-brick-50 p-3.5 font-mono text-xs text-iron-900 flex flex-wrap items-center justify-between gap-2">
+            <span>Free to post. Credited Call-Out Deposit applies only on quote acceptance:</span>
+            <strong className="text-brick-700 tabular-nums">{formatZar(selectedTrade.defaultCallOutZar)}</strong>
+          </div>
+
+          <div className="pt-3 border-t-2 border-iron-950 flex items-center justify-between gap-4">
+            <button
+              type="button"
+              onClick={() => setCurrentStep(2)}
+              className="brutal-btn-outline px-4 py-2.5 text-xs font-bold inline-flex items-center gap-1.5"
+            >
+              <ArrowLeft className="w-4 h-4" />
+              <span>BACK</span>
+            </button>
 
             <button
               type="submit"
               disabled={submitting}
-              className="inline-flex items-center justify-center gap-2 px-6 py-3 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white font-bold text-sm shadow-sm shrink-0 disabled:opacity-50 transition"
+              className="brutal-btn-primary px-6 py-3 text-xs font-black inline-flex items-center gap-2 disabled:opacity-50"
             >
-              {submitting ? "Broadcasting Job..." : "Broadcast Job to Vetted Pros"}
+              <span>{submitting ? "POSTING..." : "POST JOB"}</span>
               <ArrowRight className="w-4 h-4" />
             </button>
           </div>
-
-          {error && (
-            <div className="p-3 rounded-xl bg-red-50 border border-red-200 text-red-700 text-xs font-medium">
-              {error}
-            </div>
-          )}
-        </div>
-      </form>
+        </form>
+      )}
     </div>
   );
 }

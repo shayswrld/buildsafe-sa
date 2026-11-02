@@ -8,7 +8,7 @@ import {
   Clock,
   ArrowRight,
   AlertCircle,
-  PlusCircle,
+  Plus,
   Star,
   Lock,
 } from "lucide-react";
@@ -38,24 +38,24 @@ interface JobSummaryDTO {
   milestones: { id: string; status: string }[];
 }
 
-function statusPill(status: string) {
+function statusBadgeClasses(status: string) {
   switch (status) {
     case "OPEN":
-      return "bg-emerald-100 text-emerald-800";
+      return "border-2 border-iron-950 bg-emerald-100 text-emerald-950";
     case "QUOTED":
-      return "bg-blue-100 text-blue-800";
+      return "border-2 border-iron-950 bg-blue-100 text-blue-950";
     case "ESCROW_FUNDED":
-      return "bg-amber-100 text-amber-900";
+      return "border-2 border-iron-950 bg-amber-200 text-amber-950";
     case "WORKER_ON_SITE":
-      return "bg-purple-100 text-purple-900";
+      return "border-2 border-iron-950 bg-purple-100 text-purple-950";
     case "WORK_SUBMITTED":
-      return "bg-indigo-100 text-indigo-900";
+      return "border-2 border-iron-950 bg-indigo-100 text-indigo-950";
     case "COMPLETED":
-      return "bg-slate-200 text-slate-800";
+      return "border-2 border-iron-950 bg-mortar-300 text-iron-950";
     case "DISPUTED":
-      return "bg-red-100 text-red-800";
+      return "border-2 border-iron-950 bg-rose-200 text-rose-950";
     default:
-      return "bg-slate-100 text-slate-700";
+      return "border-2 border-iron-950 bg-mortar-200 text-iron-950";
   }
 }
 
@@ -83,85 +83,88 @@ export default function JobsListPage() {
     currentUser.workerProfile?.vettingTier === "TIER_1_BROWSE_ONLY";
 
   return (
-    <div className="max-w-7xl mx-auto px-4 py-8 space-y-6">
-      <div className="flex flex-wrap items-center justify-between gap-4">
-        <div>
-          <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900">
-            South African Renovation &amp; Trade Jobs
-          </h1>
-          <p className="text-sm text-slate-600 mt-1">
-            Every job is protected by Masked Pre-Booking Chat, Regulated Milestone
-            Escrow, and 6-Digit Gate Check-In OTPs.
-          </p>
-        </div>
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
+      {/* Header & Primary Action */}
+      <div className="border-b-2 border-iron-950 pb-4 flex flex-wrap items-center justify-between gap-4">
+        <h1 className="text-2xl sm:text-3xl font-black text-iron-950 uppercase tracking-tight">
+          Active Trade Jobs
+        </h1>
 
         <Link
           href="/jobs/new"
-          className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white font-bold text-sm shadow-sm"
+          className="brutal-btn-primary px-4 py-2.5 text-xs font-black inline-flex items-center gap-1.5 shrink-0"
         >
-          <PlusCircle className="w-4 h-4" />
-          Log a New Job
+          <Plus className="w-4 h-4" />
+          <span>[ POST A JOB ]</span>
         </Link>
       </div>
 
-      {/* Tier 1 Browse-Only Banner for New Roadside Artisans */}
+      {/* Tier 1 Browse-Only Notice for Unvetted Workers */}
       {isTier1Worker && (
-        <div className="bg-amber-50 border border-amber-300 rounded-2xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <div className="flex items-start gap-3">
-            <AlertCircle className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
-            <div className="text-xs sm:text-sm text-amber-950">
-              <div className="font-bold">
-                Welcome {currentUser?.name}! You are on Tier 1 (Free Browse Mode)
-              </div>
-              <p className="text-amber-800 mt-0.5">
-                You can browse all real homeowner jobs near{" "}
-                <strong>{currentUser?.workerProfile?.nearestHardwareHub}</strong>{" "}
-                for free. To unlock quoting and accepting jobs, complete your{" "}
-                <strong>R200 HURU / AFISwitch SAPS Fingerprint Check</strong>.
-              </p>
-            </div>
+        <div className="border-2 border-iron-950 bg-safety-50 p-4 shadow-brutal rounded-none flex flex-wrap items-center justify-between gap-3">
+          <div className="flex items-center gap-2.5 text-xs font-mono text-iron-950">
+            <AlertCircle className="w-4 h-4 text-safety-600 shrink-0" />
+            <span>
+              <strong>Tier 1 (Browse Only):</strong> Complete your R200 SAPS check to submit quotes.
+            </span>
           </div>
+
           <Link
             href="/worker/onboarding"
-            className="inline-flex items-center justify-center gap-1.5 px-4 py-2 rounded-xl bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs shrink-0"
+            className="brutal-btn-dark px-3.5 py-2 text-xs font-mono font-bold uppercase tracking-wider shrink-0"
           >
-            Complete SAPS Clearance →
+            COMPLETE SAPS CLEARANCE →
           </Link>
         </div>
       )}
 
-      {/* Trade Filter Pills */}
+      {/* Trade Category Filter Bar */}
       <div className="flex flex-wrap gap-2">
         <button
           type="button"
           onClick={() => setCategoryFilter("ALL")}
-          className={`px-3.5 py-1.5 rounded-full text-xs font-semibold border transition ${
+          className={`px-3 py-1.5 font-mono text-xs font-bold uppercase border-2 border-iron-950 transition-all duration-100 rounded-none ${
             categoryFilter === "ALL"
-              ? "bg-slate-900 text-white border-slate-900"
-              : "bg-white text-slate-700 border-slate-200 hover:bg-slate-100"
+              ? "bg-brick-600 text-white shadow-brutal-sm"
+              : "bg-white text-iron-950 hover:bg-mortar-200"
           }`}
         >
-          All Trades ({jobs.length})
+          All ({jobs.length})
         </button>
-        {TRADE_CATEGORIES.map((c) => (
+
+        {TRADE_CATEGORIES.map((cat) => (
           <button
-            key={c.slug}
+            key={cat.slug}
             type="button"
-            onClick={() => setCategoryFilter(c.slug)}
-            className={`px-3.5 py-1.5 rounded-full text-xs font-semibold border transition ${
-              categoryFilter === c.slug
-                ? "bg-slate-900 text-white border-slate-900"
-                : "bg-white text-slate-700 border-slate-200 hover:bg-slate-100"
+            onClick={() => setCategoryFilter(cat.slug)}
+            className={`px-3 py-1.5 font-mono text-xs font-bold uppercase border-2 border-iron-950 transition-all duration-100 rounded-none ${
+              categoryFilter === cat.slug
+                ? "bg-brick-600 text-white shadow-brutal-sm"
+                : "bg-white text-iron-950 hover:bg-mortar-200"
             }`}
           >
-            {c.label}
+            {cat.label}
           </button>
         ))}
       </div>
 
+      {/* Job Card Grid */}
       {loading ? (
-        <div className="text-sm text-slate-500 py-12 text-center">
-          Loading verified jobs...
+        <div className="border-2 border-iron-950 bg-white p-10 text-center shadow-brutal rounded-none font-mono text-xs font-bold uppercase text-iron-600">
+          Loading jobs...
+        </div>
+      ) : filtered.length === 0 ? (
+        <div className="border-2 border-iron-950 bg-white p-10 text-center shadow-brutal rounded-none space-y-3">
+          <p className="font-mono text-xs font-bold uppercase text-iron-600">
+            No jobs in &quot;{categoryFilter}&quot;
+          </p>
+          <button
+            type="button"
+            onClick={() => setCategoryFilter("ALL")}
+            className="brutal-btn-outline px-4 py-2 text-xs font-bold"
+          >
+            SHOW ALL TRADES
+          </button>
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
@@ -169,70 +172,72 @@ export default function JobsListPage() {
             <Link
               key={job.id}
               href={`/jobs/${job.id}`}
-              className="bg-white rounded-2xl p-5 border border-slate-200 hover:border-emerald-500 shadow-sm transition flex flex-col justify-between gap-4 group"
+              className="border-2 border-iron-950 bg-white p-5 shadow-brutal hover:shadow-brutal-brick transition-all duration-100 rounded-none flex flex-col justify-between gap-4 group"
             >
               <div className="space-y-2.5">
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <div className="flex items-center gap-2">
                     <span
-                      className={`text-[11px] font-bold uppercase px-2.5 py-0.5 rounded-full ${statusPill(
+                      className={`font-mono text-[11px] font-black uppercase px-2 py-0.5 rounded-none ${statusBadgeClasses(
                         job.status
                       )}`}
                     >
                       {job.status.replace(/_/g, " ")}
                     </span>
-                    <span className="text-xs font-semibold text-slate-500">
+                    <span className="font-mono text-xs font-bold uppercase text-iron-600">
                       {job.category}
                     </span>
                   </div>
 
                   {job.requiresCoC ? (
-                    <span className="inline-flex items-center gap-1 text-[11px] font-bold px-2 py-0.5 rounded bg-amber-100 text-amber-900 border border-amber-200">
-                      <ShieldCheck className="w-3.5 h-3.5 text-amber-700" />
-                      Tier 3 Statutory CoC Required
+                    <span className="border-2 border-safety-600 bg-safety-100 text-safety-950 font-mono text-[11px] font-bold uppercase px-2 py-0.5 rounded-none flex items-center gap-1">
+                      <ShieldCheck className="w-3.5 h-3.5 text-safety-600" />
+                      CoC Required
                     </span>
                   ) : (
-                    <span className="inline-flex items-center gap-1 text-[11px] font-medium px-2 py-0.5 rounded bg-emerald-50 text-emerald-800">
-                      Tier 2+ SAPS-Cleared Eligible
+                    <span className="border border-iron-700 bg-mortar-100 text-iron-800 font-mono text-[11px] uppercase px-2 py-0.5 rounded-none">
+                      Tier 2+ SAPS
                     </span>
                   )}
                 </div>
 
-                <h2 className="font-bold text-lg text-slate-900 group-hover:text-emerald-700 transition">
+                <h2 className="font-black text-lg text-iron-950 uppercase tracking-tight group-hover:text-brick-600 transition-colors">
                   {job.title}
                 </h2>
 
-                <p className="text-xs sm:text-sm text-slate-600 line-clamp-2">
+                <p className="text-xs text-iron-700 line-clamp-1 font-sans">
                   {job.description}
                 </p>
               </div>
 
-              <div className="pt-3 border-t border-slate-100 flex flex-wrap items-center justify-between gap-2 text-xs text-slate-600">
-                <div className="flex flex-wrap items-center gap-3">
-                  <span className="inline-flex items-center gap-1 font-medium text-slate-800">
-                    <MapPin className="w-3.5 h-3.5 text-emerald-600" />
+              <div className="pt-3 border-t-2 border-iron-950 flex flex-wrap items-center justify-between gap-2 text-xs">
+                <div className="flex flex-wrap items-center gap-3 font-mono text-[11px] text-iron-800">
+                  <span className="flex items-center gap-1 font-bold">
+                    <MapPin className="w-3.5 h-3.5 text-brick-600 shrink-0" />
                     {job.suburb}, {job.city}
                   </span>
-                  <span className="inline-flex items-center gap-1">
-                    <Star className="w-3.5 h-3.5 fill-amber-400 text-amber-400" />
-                    Buyer {job.homeowner.ratingAvg.toFixed(1)}★
+
+                  <span className="flex items-center gap-1">
+                    <Star className="w-3.5 h-3.5 fill-safety-500 text-safety-500 shrink-0" />
+                    <span className="tabular-nums">{job.homeowner.ratingAvg.toFixed(1)}</span>
                   </span>
-                  <span className="inline-flex items-center gap-1">
-                    <Clock className="w-3.5 h-3.5 text-slate-400" />
-                    {job.quotes.length} quote{job.quotes.length === 1 ? "" : "s"}
+
+                  <span className="flex items-center gap-1 text-iron-600">
+                    <Clock className="w-3.5 h-3.5 shrink-0" />
+                    <span className="tabular-nums">{job.quotes.length}</span> bid{job.quotes.length === 1 ? "" : "s"}
                   </span>
                 </div>
 
-                <div className="flex items-center gap-2 font-bold text-emerald-700">
+                <div className="flex items-center gap-1.5 font-mono font-black text-brick-600">
                   {job.budgetEstimateZar ? (
-                    <span>Est. {formatZar(job.budgetEstimateZar)}</span>
+                    <span className="tabular-nums">Est. {formatZar(job.budgetEstimateZar)}</span>
                   ) : (
-                    <span className="inline-flex items-center gap-1">
-                      <Lock className="w-3 h-3" />
+                    <span className="inline-flex items-center gap-1 tabular-nums">
+                      <Lock className="w-3 h-3 text-iron-950" />
                       Call-Out {formatZar(job.callOutDepositZar)}
                     </span>
                   )}
-                  <ArrowRight className="w-4 h-4" />
+                  <ArrowRight className="w-4 h-4 text-iron-950 group-hover:translate-x-1 transition-transform" />
                 </div>
               </div>
             </Link>

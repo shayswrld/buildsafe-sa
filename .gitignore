@@ -8,3 +8,5 @@ prisma/*.db-journal
 .env*.local
 *.tsbuildinfo
 next-env.d.ts
+.agents/
+

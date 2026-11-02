@@ -10,6 +10,11 @@ import {
   UserPlus,
   Award,
   RotateCcw,
+  ChevronDown,
+  ChevronUp,
+  Terminal,
+  ArrowRight,
+  AlertTriangle,
 } from "lucide-react";
 import { usePersona } from "@/components/PersonaContext";
 import { SA_HARDWARE_HUBS, TRADE_CATEGORIES, formatZar } from "@/lib/config";
@@ -33,12 +38,13 @@ export default function WorkerOnboardingPage() {
     text: string;
   } | null>(null);
 
-  // CoC submission state
+  const [isCocDrawerOpen, setIsCocDrawerOpen] = useState<boolean>(false);
+  const [isDevSandboxOpen, setIsDevSandboxOpen] = useState<boolean>(false);
+
   const [cocBody, setCocBody] = useState<string>("PIRB");
   const [cocRegNumber, setCocRegNumber] = useState<string>("PIRB-77102-ZA");
   const [cocTrade, setCocTrade] = useState<string>("PLUMBING");
 
-  // New Tier 1 Artisan registration state
   const [newName, setNewName] = useState<string>("Mandla Zulu");
   const [newPhone, setNewPhone] = useState<string>(
     `+2773${Math.floor(1000000 + Math.random() * 8999999)}`
@@ -86,7 +92,7 @@ export default function WorkerOnboardingPage() {
     if (data) {
       setStatusMsg({
         kind: "ok",
-        text: `POPIA Consent Logged & R${config.sapsVettingFeeZar} HURU Biometric Barcode (${data.voucher.voucherCode}) Generated! Scan fingerprints below.`,
+        text: `HURU Voucher (${data.voucher.voucherCode}) generated. Scan fingerprints at PostNet or Builders.`,
       });
     }
   };
@@ -119,8 +125,9 @@ export default function WorkerOnboardingPage() {
     if (data) {
       setStatusMsg({
         kind: "ok",
-        text: "Trade CoC submitted to Admin Governance Queue! Switch to Admin to verify and unlock Tier 3.",
+        text: "CoC submitted to Admin Queue.",
       });
+      setIsCocDrawerOpen(false);
     }
   };
 
@@ -145,127 +152,123 @@ export default function WorkerOnboardingPage() {
       setTab("UPGRADE_EXISTING");
       setStatusMsg({
         kind: "ok",
-        text: `Welcome ${data.user.name}! 13-digit SA ID Luhn checksum passed & POPIA-masked (${data.user.workerProfile.saIdMasked}). You can now browse local jobs on Tier 1!`,
+        text: `Registered ${data.user.name} (${data.user.workerProfile.saIdMasked}) on Tier 1.`,
       });
     }
   };
 
   return (
-    <div className="max-w-5xl mx-auto px-4 py-8 space-y-6">
-      <div className="flex flex-wrap items-center justify-between gap-4">
-        <div>
-          <span className="inline-flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider px-2.5 py-1 rounded-full bg-amber-100 text-amber-900">
-            <Fingerprint className="w-3.5 h-3.5" />
-            POPIA + HURU / AFISwitch Biometric SAPS Governance
-          </span>
-          <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 mt-2">
-            3-Tier Skilled Artisan Security Onboarding
-          </h1>
-          <p className="text-sm text-slate-600 mt-1">
-            Free SA ID + Selfie registration lets roadside artisans see real jobs
-            nearby; biometric SAPS criminal clearance is strictly enforced before
-            quoting or entering any home.
-          </p>
-        </div>
+    <div className="max-w-5xl mx-auto px-4 sm:px-6 py-6 space-y-5">
+      {/* Header & View Switcher */}
+      <div className="border-b-2 border-iron-950 pb-4 flex flex-wrap items-center justify-between gap-3">
+        <h1 className="text-2xl sm:text-3xl font-black text-iron-950 uppercase tracking-tight">
+          Artisan Vetting &amp; Onboarding
+        </h1>
 
-        <div className="flex gap-2 bg-slate-200/70 p-1 rounded-xl text-xs font-bold">
+        <div className="flex items-center gap-1 font-mono text-xs">
           <button
             type="button"
             onClick={() => setTab("UPGRADE_EXISTING")}
-            className={`px-3.5 py-2 rounded-lg transition ${
+            className={`px-3 py-1.5 border-2 border-iron-950 font-bold uppercase tracking-wider transition-all duration-150 ${
               tab === "UPGRADE_EXISTING"
-                ? "bg-white text-slate-900 shadow-sm"
-                : "text-slate-600"
+                ? "bg-iron-950 text-white shadow-brutal-sm"
+                : "bg-white text-iron-950 hover:bg-mortar-200"
             }`}
           >
-            SAPS &amp; CoC Vetting Flow
+            Vetting Tiers
           </button>
           <button
             type="button"
             onClick={() => setTab("NEW_SIGNUP")}
-            className={`px-3.5 py-2 rounded-lg transition ${
+            className={`px-3 py-1.5 border-2 border-iron-950 font-bold uppercase tracking-wider transition-all duration-150 ${
               tab === "NEW_SIGNUP"
-                ? "bg-white text-slate-900 shadow-sm"
-                : "text-slate-600"
+                ? "bg-iron-950 text-white shadow-brutal-sm"
+                : "bg-white text-iron-950 hover:bg-mortar-200"
             }`}
           >
-            + New Roadside Sign-Up
+            + New Sign-Up
           </button>
         </div>
       </div>
 
+      {/* Status Notice Banner */}
       {statusMsg && (
         <div
-          className={`p-4 rounded-2xl border text-sm font-medium ${
+          role="alert"
+          className={`p-3.5 border-2 border-iron-950 rounded-none shadow-brutal text-xs font-mono flex items-start gap-2.5 transition-all duration-150 ${
             statusMsg.kind === "ok"
-              ? "bg-emerald-50 border-emerald-300 text-emerald-950"
-              : "bg-red-50 border-red-300 text-red-900"
+              ? "bg-emerald-50 text-emerald-950"
+              : "bg-rose-50 text-rose-950"
           }`}
         >
-          {statusMsg.text}
+          {statusMsg.kind === "ok" ? (
+            <CheckCircle2 className="w-4 h-4 text-emerald-700 shrink-0 mt-0.5" />
+          ) : (
+            <AlertTriangle className="w-4 h-4 text-rose-700 shrink-0 mt-0.5" />
+          )}
+          <div className="flex-1 leading-relaxed">{statusMsg.text}</div>
         </div>
       )}
 
       {tab === "NEW_SIGNUP" ? (
         <form
           onSubmit={handleRegisterNewWorker}
-          className="bg-white rounded-2xl p-6 border border-slate-200 shadow-sm space-y-4"
+          className="border-2 border-iron-950 bg-white p-5 rounded-none shadow-brutal space-y-5"
         >
-          <div className="flex items-center gap-2">
-            <UserPlus className="w-5 h-5 text-emerald-700" />
-            <h2 className="font-bold text-lg text-slate-900">
-              Tier 1 Free Registration (13-Digit SA ID Checksum + Live Selfie)
+          <div className="flex items-center gap-2 border-b-2 border-iron-950 pb-2.5">
+            <UserPlus className="w-5 h-5 text-brick-600" />
+            <h2 className="font-black text-base text-iron-950 uppercase">
+              Tier 1 Free Sign-Up (SA ID + Live Selfie)
             </h2>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
             <div>
-              <label className="block font-semibold text-slate-700 mb-1">
-                Full Legal Name (As on SA ID Smart Card)
+              <label className="block font-bold text-iron-950 uppercase mb-1 font-mono">
+                Full Name (As on SA ID)
               </label>
               <input
                 type="text"
                 required
                 value={newName}
                 onChange={(e) => setNewName(e.target.value)}
-                className="w-full rounded-xl border border-slate-300 px-3.5 py-2.5 text-sm"
+                className="w-full border-2 border-iron-950 rounded-none px-3 py-2 text-sm bg-white focus:outline-none"
               />
             </div>
 
             <div>
-              <label className="block font-semibold text-slate-700 mb-1">
-                SA Mobile Number
+              <label className="block font-bold text-iron-950 uppercase mb-1 font-mono">
+                Mobile Number
               </label>
               <input
                 type="text"
                 required
                 value={newPhone}
                 onChange={(e) => setNewPhone(e.target.value)}
-                className="w-full rounded-xl border border-slate-300 px-3.5 py-2.5 text-sm"
+                className="w-full border-2 border-iron-950 rounded-none px-3 py-2 text-sm font-mono bg-white focus:outline-none"
               />
             </div>
 
             <div>
               <div className="flex items-center justify-between mb-1">
-                <label className="font-semibold text-slate-700">
-                  13-Digit South African ID Number
+                <label className="font-bold text-iron-950 uppercase font-mono">
+                  13-Digit SA ID
                 </label>
-                <div className="flex gap-2">
+                <div className="flex gap-2 text-[11px] font-mono">
                   <button
                     type="button"
-                    onClick={() =>
-                      setNewSaId(buildValidSaId("900412", "5409", "0"))
-                    }
-                    className="text-emerald-700 underline font-semibold"
+                    onClick={() => setNewSaId(buildValidSaId("900412", "5409", "0"))}
+                    className="text-brick-600 hover:underline font-bold"
                   >
-                    Generate Valid ID
+                    Valid ID
                   </button>
+                  <span className="text-iron-400">|</span>
                   <button
                     type="button"
                     onClick={() => setNewSaId("9004125409080")}
-                    className="text-red-600 underline font-semibold"
+                    className="text-rose-700 hover:underline font-bold"
                   >
-                    Test Fake ID
+                    Invalid ID
                   </button>
                 </div>
               </div>
@@ -275,21 +278,18 @@ export default function WorkerOnboardingPage() {
                 maxLength={13}
                 value={newSaId}
                 onChange={(e) => setNewSaId(e.target.value)}
-                className="w-full rounded-xl border border-slate-300 px-3.5 py-2.5 text-sm font-mono"
+                className="w-full border-2 border-iron-950 rounded-none px-3 py-2 text-sm font-mono tabular-nums bg-white focus:outline-none"
               />
-              <p className="text-[11px] text-slate-500 mt-1">
-                Validated using Home Affairs Luhn checksum &amp; stored POPIA-masked.
-              </p>
             </div>
 
             <div>
-              <label className="block font-semibold text-slate-700 mb-1">
-                Usual Hardware Store / Builders Hub
+              <label className="block font-bold text-iron-950 uppercase mb-1 font-mono">
+                Nearest Hardware Hub
               </label>
               <select
                 value={newHub}
                 onChange={(e) => setNewHub(e.target.value)}
-                className="w-full rounded-xl border border-slate-300 px-3.5 py-2.5 text-sm bg-white"
+                className="w-full border-2 border-iron-950 rounded-none px-3 py-2 text-sm bg-white font-mono focus:outline-none"
               >
                 {SA_HARDWARE_HUBS.map((h) => (
                   <option key={h} value={h}>
@@ -300,13 +300,13 @@ export default function WorkerOnboardingPage() {
             </div>
 
             <div>
-              <label className="block font-semibold text-slate-700 mb-1">
-                Primary Skilled Trade
+              <label className="block font-bold text-iron-950 uppercase mb-1 font-mono">
+                Primary Trade
               </label>
               <select
                 value={newTrade}
                 onChange={(e) => setNewTrade(e.target.value)}
-                className="w-full rounded-xl border border-slate-300 px-3.5 py-2.5 text-sm bg-white"
+                className="w-full border-2 border-iron-950 rounded-none px-3 py-2 text-sm bg-white font-mono focus:outline-none"
               >
                 {TRADE_CATEGORIES.map((t) => (
                   <option key={t.slug} value={t.slug}>
@@ -316,15 +316,16 @@ export default function WorkerOnboardingPage() {
               </select>
             </div>
 
-            <div className="flex items-center">
-              <label className="flex items-center gap-2.5 p-3 rounded-xl bg-emerald-50 border border-emerald-200 cursor-pointer w-full">
+            <div className="flex items-end">
+              <label className="flex items-center gap-2.5 p-2.5 border-2 border-iron-950 bg-mortar-100 rounded-none cursor-pointer w-full">
                 <input
                   type="checkbox"
                   checked={newSelfie}
                   onChange={(e) => setNewSelfie(e.target.checked)}
+                  className="w-4 h-4 rounded-none border-2 border-iron-950 text-brick-600 focus:ring-0"
                 />
-                <span className="text-xs font-semibold text-emerald-950">
-                  Live Camera Selfie Liveness Matched to ID Photo
+                <span className="text-xs font-bold text-iron-950">
+                  Live Selfie Matched to Home Affairs Photo
                 </span>
               </label>
             </div>
@@ -332,27 +333,27 @@ export default function WorkerOnboardingPage() {
 
           <button
             type="submit"
-            className="px-6 py-3 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white font-bold text-sm"
+            className="brutal-btn brutal-btn-primary px-5 py-2.5 text-xs"
           >
-            Create Free Tier 1 Artisan Account (Browse Jobs)
+            Create Tier 1 Account
           </button>
         </form>
       ) : (
         wp && (
-          <div className="space-y-6">
-            {/* Worker Selector */}
-            <div className="bg-white rounded-2xl p-5 border border-slate-200 shadow-sm flex flex-wrap items-center justify-between gap-4">
+          <div className="space-y-4">
+            {/* Active Worker Bar */}
+            <div className="border-2 border-iron-950 bg-white p-4 rounded-none shadow-brutal flex flex-wrap items-center justify-between gap-3">
               <div className="flex items-center gap-3">
-                <div className="w-12 h-12 rounded-xl bg-slate-900 text-white font-extrabold flex items-center justify-center">
+                <div className="w-10 h-10 border-2 border-iron-950 bg-iron-950 text-white font-black text-base flex items-center justify-center font-mono rounded-none">
                   {activeWorker.avatarUrl || "W"}
                 </div>
                 <div>
-                  <div className="font-bold text-slate-900 text-lg">
+                  <div className="font-black text-iron-950 text-base">
                     {activeWorker.name}
                   </div>
-                  <div className="text-xs text-slate-500">
-                    POPIA Masked ID: <strong>{wp.saIdMasked}</strong> •{" "}
-                    {wp.nearestHardwareHub}
+                  <div className="text-xs font-mono text-iron-700">
+                    ID: <strong className="tabular-nums text-iron-950">{wp.saIdMasked}</strong> •{" "}
+                    <strong className="text-iron-950">{wp.nearestHardwareHub}</strong>
                   </div>
                 </div>
               </div>
@@ -361,11 +362,11 @@ export default function WorkerOnboardingPage() {
                 <select
                   value={activeWorker.id}
                   onChange={(e) => setCurrentUserId(e.target.value)}
-                  className="text-xs border border-slate-300 rounded-lg px-3 py-2 bg-slate-50 font-semibold"
+                  className="text-xs border-2 border-iron-950 rounded-none px-2.5 py-1.5 bg-white font-mono font-bold focus:outline-none"
                 >
                   {workerPersonas.map((w) => (
                     <option key={w.id} value={w.id}>
-                      Inspect Worker: {w.name} ({w.workerProfile?.vettingTier})
+                      {w.name} ({w.workerProfile?.vettingTier.replace(/_/g, " ")})
                     </option>
                   ))}
                 </select>
@@ -378,216 +379,276 @@ export default function WorkerOnboardingPage() {
                       workerProfileId: wp.id,
                     })
                   }
-                  className="inline-flex items-center gap-1 px-3 py-2 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold"
+                  className="brutal-btn brutal-btn-outline inline-flex items-center gap-1 px-2.5 py-1.5 text-xs"
                 >
                   <RotateCcw className="w-3.5 h-3.5" />
-                  Reset to Tier 1
+                  Reset Tier 1
                 </button>
               </div>
             </div>
 
-            {/* 3-Tier Cards */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-              {/* TIER 1 */}
-              <div className="bg-white rounded-2xl p-5 border border-emerald-300 shadow-sm space-y-3">
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-bold uppercase text-emerald-700">
-                    Tier 1 • Free
+            {/* TIER 1 */}
+            <div className="border-2 border-iron-950 bg-white rounded-none shadow-brutal p-5 space-y-3">
+              <div className="flex flex-wrap items-center justify-between gap-2 border-b-2 border-iron-950 pb-2.5">
+                <div className="flex items-center gap-2">
+                  <span className="font-mono text-xs font-bold uppercase text-brick-600">
+                    // TIER 01
                   </span>
-                  <CheckCircle2 className="w-5 h-5 text-emerald-600" />
+                  <h3 className="font-black text-base text-iron-950 uppercase">
+                    Free Browse (SA ID &amp; Selfie)
+                  </h3>
                 </div>
-                <h3 className="font-bold text-slate-900">
-                  SA ID + Live Selfie Verified
-                </h3>
-                <p className="text-xs text-slate-600">
-                  Verified adult SA ID (<strong>{wp.saIdMasked}</strong>) &amp;
-                  biometric selfie match. Can browse open renovation demand near
-                  hardware hubs,{" "}
-                  <strong>but strictly blocked from quoting or messaging</strong>.
-                </p>
+                <span className="inline-flex items-center gap-1 text-xs font-mono font-bold uppercase px-2 py-0.5 border border-iron-950 bg-emerald-100 text-emerald-950">
+                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-700" />
+                  VERIFIED
+                </span>
+              </div>
+
+              <div className="flex flex-wrap items-center justify-between gap-3 text-xs font-mono">
+                <div className="flex flex-wrap gap-4 text-iron-700">
+                  <span>SA ID: <strong className="text-iron-950 tabular-nums">{wp.saIdMasked}</strong></span>
+                  <span>Selfie: <strong className="text-iron-950">Liveness Matched</strong></span>
+                  <span>Access: <strong className="text-iron-950">Browse Only</strong></span>
+                </div>
                 <Link
                   href="/jobs"
-                  className="inline-block text-xs font-bold text-emerald-700 underline"
+                  className="brutal-btn brutal-btn-outline inline-flex items-center gap-1.5 px-3.5 py-1.5 text-xs"
                 >
-                  Browse Nearby Jobs →
+                  Browse Jobs <ArrowRight className="w-3.5 h-3.5" />
                 </Link>
               </div>
+            </div>
 
-              {/* TIER 2: SAPS BIOMETRIC CLEARANCE */}
-              <div
-                className={`bg-white rounded-2xl p-5 border-2 shadow-sm space-y-3 ${
-                  wp.sapsStatus === "CLEARED"
-                    ? "border-emerald-500"
-                    : wp.sapsStatus === "FLAGGED_RECORD"
-                    ? "border-red-500"
-                    : "border-amber-400"
-                }`}
-              >
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-bold uppercase text-amber-700">
-                    Tier 2 • {formatZar(config.sapsVettingFeeZar)} Mandatory
+            {/* TIER 2 */}
+            <div
+              className={`border-2 border-iron-950 bg-white rounded-none shadow-brutal p-5 space-y-3 ${
+                wp.sapsStatus === "CLEARED"
+                  ? "border-l-8 border-l-emerald-600"
+                  : wp.sapsStatus === "FLAGGED_RECORD"
+                  ? "border-l-8 border-l-rose-600"
+                  : "border-l-8 border-l-amber-500"
+              }`}
+            >
+              <div className="flex flex-wrap items-center justify-between gap-2 border-b-2 border-iron-950 pb-2.5">
+                <div className="flex items-center gap-2">
+                  <span className="font-mono text-xs font-bold uppercase text-brick-600">
+                    // TIER 02
                   </span>
-                  {wp.sapsStatus === "CLEARED" ? (
-                    <ShieldCheck className="w-5 h-5 text-emerald-600" />
-                  ) : (
-                    <ShieldAlert className="w-5 h-5 text-amber-600" />
-                  )}
+                  <h3 className="font-black text-base text-iron-950 uppercase">
+                    SAPS Fingerprint Clearance (Required to Quote)
+                  </h3>
                 </div>
+                <span className="font-mono text-xs font-bold uppercase px-2 py-0.5 border border-iron-950 bg-mortar-200 text-iron-950">
+                  {formatZar(config.sapsVettingFeeZar)} FEE
+                </span>
+              </div>
 
-                <h3 className="font-bold text-slate-900">
-                  HURU / AFISwitch SAPS Fingerprint Check
-                </h3>
-
-                {wp.sapsStatus === "CLEARED" ? (
-                  <div className="p-3 rounded-xl bg-emerald-50 border border-emerald-200 text-xs text-emerald-950 space-y-1">
-                    <div className="font-bold">✓ ZERO CRIMINAL RECORD</div>
-                    <div>Cert: {wp.sapsCertificateRef}</div>
-                    <div>Cleared to submit quotes &amp; join Crew Gate Passes!</div>
-                  </div>
-                ) : wp.sapsStatus === "FLAGGED_RECORD" ? (
-                  <div className="p-3 rounded-xl bg-red-50 border border-red-200 text-xs text-red-900 space-y-1">
-                    <div className="font-bold">✗ CRIMINAL RECORD FLAGGED</div>
-                    <div>
-                      Account permanently suspended from quoting or joining any
-                      crew manifest.
+              {wp.sapsStatus === "CLEARED" && (
+                <div className="border-2 border-iron-950 bg-emerald-50 p-3.5 text-emerald-950 flex flex-wrap items-center justify-between gap-3">
+                  <div className="font-mono text-xs space-y-0.5">
+                    <div className="inline-flex items-center gap-1.5 font-black uppercase text-emerald-900">
+                      <ShieldCheck className="w-4 h-4 text-emerald-700" />
+                      CLEARED · REF: {wp.sapsCertificateRef}
+                    </div>
+                    <div className="text-emerald-800">
+                      Authorized to quote, chat, and receive Gate OTP passes.
                     </div>
                   </div>
-                ) : (
-                  <div className="space-y-3 text-xs">
-                    {!wp.huruVoucherCode ? (
-                      <>
-                        <label className="flex items-start gap-2 p-2.5 rounded-lg bg-slate-50 border border-slate-200 cursor-pointer">
-                          <input
-                            type="checkbox"
-                            checked={popiaChecked}
-                            onChange={(e) => setPopiaChecked(e.target.checked)}
-                            className="mt-0.5"
-                          />
-                          <span>
-                            <strong>POPIA Consent:</strong> I consent to biometric
-                            fingerprint capture and SAPS Criminal Record enquiry
-                            via HURU &amp; AFISwitch.
-                          </span>
-                        </label>
-                        <button
-                          type="button"
-                          onClick={handleGenerateVoucher}
-                          className="w-full py-2.5 rounded-xl bg-amber-600 hover:bg-amber-700 text-white font-bold"
-                        >
-                          Pay {formatZar(config.sapsVettingFeeZar)} &amp; Generate
-                          PostNet Barcode
-                        </button>
-                      </>
-                    ) : (
-                      <div className="space-y-2.5">
-                        <div className="p-3 rounded-xl bg-slate-900 text-white font-mono text-center">
-                          <div className="text-[10px] text-amber-300 uppercase">
-                            PostNet / Builders Kiosk Biometric Voucher
-                          </div>
-                          <div className="text-base font-bold tracking-widest mt-0.5">
-                            {wp.huruVoucherCode}
-                          </div>
-                        </div>
-
-                        <p className="text-[11px] text-slate-500">
-                          Sandbox Webhook Simulator — Test AFISwitch SAPS Response:
-                        </p>
-                        <div className="grid grid-cols-1 gap-2">
-                          <button
-                            type="button"
-                            onClick={() => handleSimulateSaps("CLEAR")}
-                            className="w-full py-2 rounded-lg bg-emerald-700 hover:bg-emerald-800 text-white font-bold"
-                          >
-                            Simulate SAPS Result: CLEAR (0 Convictions)
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => handleSimulateSaps("FLAGGED")}
-                            className="w-full py-2 rounded-lg bg-red-600 hover:bg-red-700 text-white font-bold"
-                          >
-                            Simulate SAPS Result: FLAGGED (Block Account)
-                          </button>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                )}
-              </div>
-
-              {/* TIER 3: STATUTORY TRADE COC */}
-              <div className="bg-white rounded-2xl p-5 border border-slate-200 shadow-sm space-y-3">
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-bold uppercase text-blue-700">
-                    Tier 3 • Regulated Trades
+                  <span className="font-mono text-xs font-bold uppercase px-2.5 py-1 bg-emerald-700 text-white border border-iron-950">
+                    TIER 2 ACTIVE
                   </span>
-                  <Award className="w-5 h-5 text-blue-600" />
                 </div>
-                <h3 className="font-bold text-slate-900">
-                  Statutory CoC License (PIRB / ECB / NHBRC)
-                </h3>
-                <p className="text-xs text-slate-600">
-                  Unlocks quoting on high-value geyser, DB board, inverter, and
-                  structural CoC jobs.
-                </p>
+              )}
 
-                {wp.certifications.length > 0 && (
-                  <div className="space-y-1.5">
-                    {wp.certifications.map((c) => (
-                      <div
-                        key={c.id}
-                        className="text-xs px-2.5 py-1.5 rounded-lg bg-slate-50 border border-slate-200 flex items-center justify-between"
-                      >
-                        <span className="font-semibold">
-                          {c.body}: {c.registrationNumber}
-                        </span>
-                        <span
-                          className={`font-bold text-[10px] px-1.5 py-0.5 rounded ${
-                            c.status === "VERIFIED"
-                              ? "bg-emerald-100 text-emerald-800"
-                              : "bg-amber-100 text-amber-900"
-                          }`}
-                        >
-                          {c.status}
-                        </span>
-                      </div>
-                    ))}
-                  </div>
-                )}
+              {wp.sapsStatus === "FLAGGED_RECORD" && (
+                <div className="border-2 border-iron-950 bg-rose-50 p-3.5 text-rose-950 font-mono text-xs flex items-center gap-2">
+                  <ShieldAlert className="w-4 h-4 text-rose-700 shrink-0" />
+                  <strong>CRIMINAL RECORD FLAGGED — ACCOUNT BLOCKED FROM QUOTING &amp; SITE ENTRY</strong>
+                </div>
+              )}
 
-                <form onSubmit={handleSubmitCoC} className="space-y-2 text-xs pt-1">
-                  <select
-                    value={cocBody}
-                    onChange={(e) => {
-                      const val = e.target.value;
-                      setCocBody(val);
-                      if (val === "ECB_WIREMAN") setCocTrade("ELECTRICAL");
-                      else if (val === "NHBRC") setCocTrade("BUILDING");
-                      else setCocTrade("PLUMBING");
-                    }}
-                    className="w-full rounded-lg border border-slate-300 px-2.5 py-1.5 bg-white"
-                  >
-                    <option value="PIRB">PIRB (Licensed Plumber)</option>
-                    <option value="ECB_WIREMAN">
-                      Dept. of Labour / ECB Wireman&apos;s License
-                    </option>
-                    <option value="NHBRC">NHBRC Home Builder</option>
-                    <option value="SAQCC_GAS">SAQCC Gas Installer</option>
-                  </select>
-                  <input
-                    type="text"
-                    value={cocRegNumber}
-                    onChange={(e) => setCocRegNumber(e.target.value)}
-                    placeholder="License / Reg Number"
-                    className="w-full rounded-lg border border-slate-300 px-2.5 py-1.5"
-                  />
+              {wp.sapsStatus !== "CLEARED" && wp.sapsStatus !== "FLAGGED_RECORD" && !wp.huruVoucherCode && (
+                <div className="space-y-3">
+                  <label className="flex items-center gap-2.5 p-3 border-2 border-iron-950 bg-mortar-100 rounded-none cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={popiaChecked}
+                      onChange={(e) => setPopiaChecked(e.target.checked)}
+                      className="w-4 h-4 rounded-none border-2 border-iron-950 text-brick-600 focus:ring-0"
+                    />
+                    <span className="text-xs font-mono text-iron-950">
+                      <strong>POPIA Consent:</strong> Authorize HURU &amp; AFISwitch SAPS criminal fingerprint check.
+                    </span>
+                  </label>
+
                   <button
-                    type="submit"
-                    className="w-full py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-bold"
+                    type="button"
+                    onClick={handleGenerateVoucher}
+                    className="brutal-btn brutal-btn-primary px-4 py-2.5 text-xs flex items-center gap-2"
                   >
-                    Submit CoC for Admin Verification
+                    <Fingerprint className="w-4 h-4" />
+                    Pay {formatZar(config.sapsVettingFeeZar)} &amp; Generate PostNet Barcode
                   </button>
-                </form>
+                </div>
+              )}
+
+              {wp.sapsStatus !== "CLEARED" && wp.sapsStatus !== "FLAGGED_RECORD" && wp.huruVoucherCode && (
+                <div className="border-2 border-iron-950 bg-iron-950 text-white p-3.5 font-mono flex flex-wrap items-center justify-between gap-3">
+                  <div>
+                    <div className="text-[10px] text-safety-400 uppercase font-bold">
+                      POSTNET / BUILDERS BIOMETRIC VOUCHER
+                    </div>
+                    <div className="text-xl font-black tracking-widest tabular-nums text-white">
+                      {wp.huruVoucherCode}
+                    </div>
+                  </div>
+                  <div className="text-xs text-mortar-300">
+                    Scan fingerprints at any kiosk (valid 14 days)
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* TIER 3 */}
+            <div className="border-2 border-iron-950 bg-white rounded-none shadow-brutal p-5 space-y-3">
+              <div className="flex flex-wrap items-center justify-between gap-2 border-b-2 border-iron-950 pb-2.5">
+                <div className="flex items-center gap-2">
+                  <span className="font-mono text-xs font-bold uppercase text-brick-600">
+                    // TIER 03
+                  </span>
+                  <h3 className="font-black text-base text-iron-950 uppercase">
+                    Statutory CoC Pro (PIRB • ECB • NHBRC)
+                  </h3>
+                </div>
+                <Award className="w-4 h-4 text-brick-600" />
               </div>
+
+              {wp.certifications.length > 0 && (
+                <div className="space-y-1.5 font-mono text-xs">
+                  {wp.certifications.map((c) => (
+                    <div
+                      key={c.id}
+                      className="p-2 border border-iron-950 bg-mortar-50 flex flex-wrap items-center justify-between gap-2"
+                    >
+                      <span className="font-bold text-iron-950">
+                        {c.body}: <span className="tabular-nums">{c.registrationNumber}</span> ({c.tradeCategory})
+                      </span>
+                      <span
+                        className={`px-2 py-0.5 border border-iron-950 text-[10px] font-bold uppercase ${
+                          c.status === "VERIFIED"
+                            ? "bg-emerald-100 text-emerald-950"
+                            : "bg-amber-100 text-amber-950"
+                        }`}
+                      >
+                        {c.status}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              <div>
+                <button
+                  type="button"
+                  onClick={() => setIsCocDrawerOpen(!isCocDrawerOpen)}
+                  className="brutal-btn brutal-btn-outline w-full py-2 flex items-center justify-between px-3.5 text-xs"
+                >
+                  <span>
+                    {isCocDrawerOpen
+                      ? "[-] CLOSE COC FORM"
+                      : "[+] SUBMIT COC LICENSE (PIRB / ECB / NHBRC)"}
+                  </span>
+                  {isCocDrawerOpen ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                </button>
+
+                {isCocDrawerOpen && (
+                  <form
+                    onSubmit={handleSubmitCoC}
+                    className="mt-2.5 p-3.5 border-2 border-iron-950 bg-mortar-50 space-y-3 text-xs transition-all duration-150"
+                  >
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <div>
+                        <label className="block font-bold text-iron-950 uppercase font-mono mb-1 text-[11px]">
+                          Authority
+                        </label>
+                        <select
+                          value={cocBody}
+                          onChange={(e) => {
+                            const val = e.target.value;
+                            setCocBody(val);
+                            if (val === "ECB_WIREMAN") setCocTrade("ELECTRICAL");
+                            else if (val === "NHBRC") setCocTrade("BUILDING");
+                            else if (val === "SAQCC_GAS") setCocTrade("GAS");
+                            else setCocTrade("PLUMBING");
+                          }}
+                          className="w-full border-2 border-iron-950 rounded-none px-3 py-1.5 bg-white font-mono text-xs focus:outline-none"
+                        >
+                          <option value="PIRB">PIRB (Plumber)</option>
+                          <option value="ECB_WIREMAN">ECB Wireman (Electrical)</option>
+                          <option value="NHBRC">NHBRC (Builder)</option>
+                          <option value="SAQCC_GAS">SAQCC (Gas)</option>
+                        </select>
+                      </div>
+
+                      <div>
+                        <label className="block font-bold text-iron-950 uppercase font-mono mb-1 text-[11px]">
+                          Registration #
+                        </label>
+                        <input
+                          type="text"
+                          required
+                          value={cocRegNumber}
+                          onChange={(e) => setCocRegNumber(e.target.value)}
+                          placeholder="e.g. PIRB-77102-ZA"
+                          className="w-full border-2 border-iron-950 rounded-none px-3 py-1.5 bg-white font-mono text-xs focus:outline-none"
+                        />
+                      </div>
+                    </div>
+
+                    <button
+                      type="submit"
+                      className="brutal-btn brutal-btn-primary px-4 py-2 text-xs"
+                    >
+                      Submit CoC
+                    </button>
+                  </form>
+                )}
+              </div>
+            </div>
+
+            {/* SANDBOX DRAWER */}
+            <div className="border-2 border-iron-950 bg-white rounded-none shadow-brutal overflow-hidden">
+              <button
+                type="button"
+                onClick={() => setIsDevSandboxOpen(!isDevSandboxOpen)}
+                className="w-full px-4 py-3 bg-iron-950 text-white font-mono text-xs font-bold uppercase tracking-wider flex items-center justify-between hover:bg-iron-900 transition-colors"
+              >
+                <div className="flex items-center gap-2">
+                  <Terminal className="w-4 h-4 text-safety-400" />
+                  <span>SANDBOX: SIMULATE SAPS WEBHOOK {isDevSandboxOpen ? "[-]" : "[+]"}</span>
+                </div>
+              </button>
+
+              {isDevSandboxOpen && (
+                <div className="p-4 bg-mortar-100 border-t-2 border-iron-950 grid grid-cols-1 sm:grid-cols-2 gap-3 transition-all duration-150">
+                  <button
+                    type="button"
+                    onClick={() => handleSimulateSaps("CLEAR")}
+                    className="brutal-btn bg-emerald-700 hover:bg-emerald-800 text-white px-4 py-2 text-xs flex items-center justify-center gap-2"
+                  >
+                    <ShieldCheck className="w-4 h-4" />
+                    Simulate SAPS: CLEAR
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleSimulateSaps("FLAGGED")}
+                    className="brutal-btn bg-rose-700 hover:bg-rose-800 text-white px-4 py-2 text-xs flex items-center justify-center gap-2"
+                  >
+                    <ShieldAlert className="w-4 h-4" />
+                    Simulate SAPS: FLAGGED
+                  </button>
+                </div>
+              )}
             </div>
           </div>
         )

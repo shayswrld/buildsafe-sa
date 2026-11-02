@@ -23,6 +23,27 @@ import { usePersona } from "@/components/PersonaContext";
 import { computeEscrowSplit } from "@/lib/adapters/escrow";
 import { formatZar } from "@/lib/config";
 
+type JobWorkspaceTab = "escrow" | "gate" | "quotes" | "chat" | "ratings";
+
+function getDefaultWorkspaceTab(
+  jobStatus: string | undefined | null
+): JobWorkspaceTab {
+  switch (jobStatus) {
+    case "OPEN":
+    case "QUOTED":
+      return "quotes";
+    case "ESCROW_FUNDED":
+      return "gate";
+    case "WORKER_ON_SITE":
+    case "WORK_SUBMITTED":
+      return "escrow";
+    case "COMPLETED":
+      return "ratings";
+    default:
+      return "quotes";
+  }
+}
+
 interface JobDetailDTO {
   id: string;
   homeownerId: string;
@@ -166,33 +187,30 @@ export default function JobWorkspacePage() {
     null
   );
 
-  // Worker Quote Form state
+  const [activeTab, setActiveTab] = useState<JobWorkspaceTab>("quotes");
+  const [userSelectedTab, setUserSelectedTab] = useState<boolean>(false);
+
   const [quoteLabour, setQuoteLabour] = useState<string>("2200");
   const [quoteMaterials, setQuoteMaterials] = useState<string>("950");
   const [quoteDays, setQuoteDays] = useState<string>("2");
   const [quoteSummary, setQuoteSummary] = useState<string>(
-    "Full surface prep, quality installation, daily cleanup, and original Builders Warehouse material slip."
+    "Full surface prep, installation, cleanup, and hardware slip."
   );
   const [selectedCrewIds, setSelectedCrewIds] = useState<string[]>([]);
 
-  // Escrow Checkout selection
   const [paymentMethod, setPaymentMethod] = useState<string>("OZOW_INSTANT_EFT");
 
-  // Gate OTP Verification state
   const [otpInput, setOtpInput] = useState<string>("");
   const [faceConfirmed, setFaceConfirmed] = useState<boolean>(false);
 
-  // Scope Variation Order state
   const [showVariationForm, setShowVariationForm] = useState<boolean>(false);
   const [varTitle, setVarTitle] = useState<string>("");
   const [varLabour, setVarLabour] = useState<string>("450");
   const [varMaterials, setVarMaterials] = useState<string>("280");
   const [varSlip, setVarSlip] = useState<string>("BW-SLIP-EXTRA-104");
 
-  // Chat state
   const [chatInput, setChatInput] = useState<string>("");
 
-  // Two-Way Review state
   const [score1, setScore1] = useState<number>(5);
   const [score2, setScore2] = useState<number>(5);
   const [score3, setScore3] = useState<number>(5);
@@ -207,9 +225,12 @@ export default function JobWorkspacePage() {
     if (res.ok) {
       const data = await res.json();
       setJob(data.job);
+      if (!userSelectedTab && data.job) {
+        setActiveTab(getDefaultWorkspaceTab(data.job.status));
+      }
     }
     setLoading(false);
-  }, [jobId, currentUser?.id]);
+  }, [jobId, currentUser?.id, userSelectedTab]);
 
   useEffect(() => {
     loadJob();
@@ -217,8 +238,8 @@ export default function JobWorkspacePage() {
 
   if (loading || !job) {
     return (
-      <div className="max-w-6xl mx-auto px-4 py-12 text-center text-sm text-slate-500">
-        Loading BuildSafe SA Job Workspace...
+      <div className="max-w-7xl mx-auto px-4 py-12 text-center font-mono text-xs uppercase text-iron-700 font-bold">
+        Loading Job #{jobId}...
       </div>
     );
   }
@@ -231,6 +252,24 @@ export default function JobWorkspacePage() {
     materialsZar: Number(quoteMaterials) || 0,
     config,
   });
+
+  const fundedMilestones = job.milestones.filter((m) =>
+    ["HELD_IN_ESCROW", "WORK_SUBMITTED", "RELEASED"].includes(m.status)
+  );
+  const escrowHeldZar = fundedMilestones.reduce((sum, m) => {
+    if (m.escrowTransaction?.grossBuyerPaidZar) {
+      return sum + m.escrowTransaction.grossBuyerPaidZar;
+    }
+    return sum + m.labourAmountZar + m.materialsAmountZar;
+  }, 0);
+
+  const gateOtpDisplay = activeVisit
+    ? activeVisit.status === "VERIFIED_ON_SITE"
+      ? "VERIFIED"
+      : activeVisit.checkInCode
+    : job.hasFundedEscrow
+    ? "PENDING"
+    : "LOCKED";
 
   const handleSubmitQuote = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -252,13 +291,16 @@ export default function JobWorkspacePage() {
 
     const data = await res.json();
     if (!res.ok) {
-      setBanner({ type: "err", text: data.error || "Quote blocked by security governance." });
+      setBanner({
+        type: "err",
+        text: data.error || "Quote blocked by security governance.",
+      });
       return;
     }
 
     setBanner({
       type: "ok",
-      text: "Quote submitted! Homeowner can now compare your SAPS-cleared profile and fund Escrow.",
+      text: "Quote submitted.",
     });
     await loadJob();
   };
@@ -285,8 +327,10 @@ export default function JobWorkspacePage() {
     setOtpInput(data.gateCheckInCode || "");
     setBanner({
       type: "ok",
-      text: `Funds locked in TradeSafe Regulated Escrow! 6-Digit Gate Check-In OTP (${data.gateCheckInCode}) & SAPS Crew Pass generated.`,
+      text: `Escrow funded. Gate OTP (${data.gateCheckInCode}) & Crew Pass issued.`,
     });
+    setActiveTab("gate");
+    setUserSelectedTab(true);
     await loadJob();
   };
 
@@ -310,8 +354,10 @@ export default function JobWorkspacePage() {
     }
     setBanner({
       type: "ok",
-      text: "Gate Check-In Verified! Lead artisan & registered crew confirmed on-site.",
+      text: "Gate Check-In Verified.",
     });
+    setActiveTab("escrow");
+    setUserSelectedTab(true);
     await loadJob();
   };
 
@@ -330,7 +376,7 @@ export default function JobWorkspacePage() {
     if (res.ok) {
       setBanner({
         type: "warn",
-        text: "EMERGENCY SAFETY FREEZE ACTIVATED: Job frozen, Escrow locked, and Admin Security alerted.",
+        text: "SAFETY FREEZE: Job frozen, Escrow locked, Admin alerted.",
       });
       await loadJob();
     }
@@ -351,22 +397,22 @@ export default function JobWorkspacePage() {
     if (payload.action === "RELEASE_ESCROW") {
       setBanner({
         type: "ok",
-        text: `Escrow Released! Artisan received ${formatZar(
-          data.workerNetPayoutZar
-        )} fast payout, and ${formatZar(
+        text: `Escrow Released: ${formatZar(data.workerNetPayoutZar)} to Artisan, ${formatZar(
           data.platformTotalCutZar
-        )} was credited to Your Platform Revenue Ledger!`,
+        )} to Platform.`,
       });
       await refreshBootstrap();
+      setActiveTab("ratings");
+      setUserSelectedTab(true);
     } else if (payload.action === "CREATE_VARIATION") {
       setShowVariationForm(false);
       setVarTitle("");
       setBanner({
         type: "ok",
-        text: "Scope Variation Mini-Milestone added—Homeowner can approve & fund it into Escrow.",
+        text: "Variation milestone added.",
       });
     } else {
-      setBanner({ type: "ok", text: "Milestone status updated." });
+      setBanner({ type: "ok", text: "Milestone updated." });
     }
     await loadJob();
   };
@@ -417,7 +463,7 @@ export default function JobWorkspacePage() {
     setReviewComment("");
     setBanner({
       type: "ok",
-      text: "Verified Two-Way Trust Rating published!",
+      text: "Review published.",
     });
     await refreshBootstrap();
     await loadJob();
@@ -429,306 +475,251 @@ export default function JobWorkspacePage() {
       currentUser.id === job.selectedWorkerProfile?.userId) &&
     ["WORKER_ON_SITE", "WORK_SUBMITTED", "COMPLETED"].includes(job.status);
 
+  const tabs: { id: JobWorkspaceTab; label: string; badge: string | number }[] = [
+    { id: "escrow", label: "01 // ESCROW", badge: job.milestones.length },
+    {
+      id: "gate",
+      label: "02 // GATE OTP",
+      badge: activeVisit
+        ? activeVisit.status === "VERIFIED_ON_SITE"
+          ? "VERIFIED"
+          : "READY"
+        : "LOCKED",
+    },
+    { id: "quotes", label: "03 // QUOTES", badge: job.quotes.length },
+    { id: "chat", label: "04 // CHAT", badge: job.messages.length },
+    { id: "ratings", label: "05 // RATINGS", badge: job.reviews.length },
+  ];
+
   return (
-    <div className="max-w-7xl mx-auto px-4 py-8 space-y-6">
+    <div className="max-w-7xl mx-auto px-4 py-6 space-y-5">
+      {/* Banner Notifications */}
       {banner && (
         <div
-          className={`p-4 rounded-2xl border text-sm font-medium flex items-start gap-3 ${
+          className={`p-3.5 border-2 border-iron-950 rounded-none shadow-brutal text-xs font-mono font-bold flex items-start gap-2.5 ${
             banner.type === "ok"
-              ? "bg-emerald-50 border-emerald-300 text-emerald-950"
+              ? "bg-emerald-100 text-emerald-950 border-emerald-900"
               : banner.type === "warn"
-              ? "bg-amber-50 border-amber-300 text-amber-950"
-              : "bg-red-50 border-red-300 text-red-900"
+              ? "bg-safety-100 text-safety-950 border-iron-950"
+              : "bg-red-100 text-red-950 border-red-950"
           }`}
         >
           {banner.type === "ok" ? (
-            <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0 mt-0.5" />
+            <CheckCircle2 className="w-4 h-4 text-emerald-800 shrink-0 mt-0.5" />
           ) : (
-            <AlertTriangle className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
+            <AlertTriangle className="w-4 h-4 text-safety-700 shrink-0 mt-0.5" />
           )}
-          <div>{banner.text}</div>
+          <div className="leading-relaxed">{banner.text}</div>
         </div>
       )}
 
-      {/* Job Header Card */}
-      <div className="bg-white rounded-2xl p-6 border border-slate-200 shadow-sm space-y-4">
+      {/* Header Card */}
+      <div className="border-2 border-iron-950 bg-white rounded-none shadow-brutal p-5 space-y-3">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div className="flex flex-wrap items-center gap-2">
-            <span className="px-3 py-1 rounded-full text-xs font-bold uppercase bg-slate-900 text-white">
-              {job.status.replace(/_/g, " ")}
+            <span className="font-mono text-xs font-black uppercase px-2.5 py-0.5 bg-iron-950 text-white border-2 border-iron-950 rounded-none">
+              {job.status}
             </span>
-            <span className="px-2.5 py-1 rounded-full text-xs font-semibold bg-slate-100 text-slate-700">
+            <span className="font-mono text-xs font-bold uppercase px-2.5 py-0.5 bg-mortar-200 text-iron-950 border-2 border-iron-950 rounded-none">
               {job.category}
             </span>
             {job.requiresCoC && (
-              <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold bg-amber-100 text-amber-900 border border-amber-300">
-                <ShieldAlert className="w-3.5 h-3.5 text-amber-700" />
-                Statutory Tier 3 CoC Required
+              <span className="font-mono text-xs font-bold uppercase px-2.5 py-0.5 bg-safety-100 text-safety-900 border-2 border-iron-950 rounded-none inline-flex items-center gap-1">
+                <ShieldAlert className="w-3.5 h-3.5 text-safety-700" />
+                CoC Required
               </span>
             )}
             {job.isRepeatBooking && (
-              <span className="px-2.5 py-1 rounded-full text-xs font-bold bg-emerald-100 text-emerald-800">
-                Repeat Booking Loyalty (4% Worker Rate)
+              <span className="font-mono text-xs font-bold uppercase px-2.5 py-0.5 bg-emerald-100 text-emerald-950 border-2 border-iron-950 rounded-none">
+                Repeat (4% Fee)
               </span>
             )}
           </div>
 
-          <div className="flex items-center gap-2 text-xs bg-slate-50 px-3 py-1.5 rounded-xl border border-slate-200">
-            <span className="text-slate-500">Homeowner Buyer Score:</span>
-            <span className="font-bold text-slate-900">{job.homeowner.name}</span>
-            <span className="inline-flex items-center gap-0.5 font-bold text-amber-600">
-              <Star className="w-3.5 h-3.5 fill-amber-400 text-amber-400" />
-              {job.homeowner.ratingAvg.toFixed(2)} ({job.homeowner.ratingCount})
+          <div className="font-mono text-xs bg-mortar-100 px-2.5 py-1 border-2 border-iron-950 rounded-none flex items-center gap-1.5">
+            <span className="font-bold text-iron-950">{job.homeowner.name}</span>
+            <span className="inline-flex items-center gap-0.5 font-bold text-safety-600">
+              <Star className="w-3 h-3 fill-safety-500 text-safety-500" />
+              {job.homeowner.ratingAvg.toFixed(1)}
             </span>
           </div>
         </div>
 
-        <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900">
-          {job.title}
-        </h1>
-        <p className="text-slate-600 text-sm leading-relaxed">{job.description}</p>
+        <div>
+          <h1 className="text-xl sm:text-2xl font-black tracking-tight text-iron-950 uppercase">
+            {job.title}
+          </h1>
+          <p className="text-iron-700 text-xs sm:text-sm leading-relaxed mt-1">
+            {job.description}
+          </p>
+        </div>
 
-        <div className="pt-3 border-t border-slate-100 flex flex-wrap items-center justify-between gap-3 text-xs">
-          <div className="flex items-center gap-2 text-slate-700 font-medium">
+        <div className="pt-2.5 border-t border-mortar-300 flex flex-wrap items-center justify-between gap-2 text-xs font-mono">
+          <div className="flex items-center gap-1.5 text-iron-800 font-bold">
             {job.hasFundedEscrow ? (
-              <Unlock className="w-4 h-4 text-emerald-600" />
+              <Unlock className="w-3.5 h-3.5 text-emerald-700" />
             ) : (
-              <Lock className="w-4 h-4 text-amber-600" />
+              <Lock className="w-3.5 h-3.5 text-safety-700" />
             )}
-            <MapPin className="w-3.5 h-3.5 text-slate-400" />
-            <span>{job.streetAddressDisplay}</span>
-          </div>
-          <div className="text-slate-500">
-            Credited Call-Out Deposit:{" "}
-            <strong className="text-slate-900">
-              {formatZar(job.callOutDepositZar)}
-            </strong>
+            <MapPin className="w-3.5 h-3.5 text-iron-600" />
+            <span>
+              {job.streetAddressDisplay}, {job.suburb}, {job.city}
+            </span>
           </div>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-        {/* LEFT COLUMN (8 cols): Gate Pass, Milestones, Quotes, Submit Quote */}
-        <div className="lg:col-span-7 space-y-6">
-          {/* 1. GATE CHECK-IN OTP & VETTED CREW MANIFEST */}
-          {activeVisit && (
-            <div className="bg-gradient-to-br from-slate-900 to-emerald-950 text-white rounded-2xl p-6 shadow-lg space-y-5">
-              <div className="flex flex-wrap items-center justify-between gap-2 border-b border-white/10 pb-4">
-                <div className="flex items-center gap-2.5">
-                  <QrCode className="w-6 h-6 text-emerald-400" />
-                  <div>
-                    <div className="text-xs uppercase tracking-wider text-emerald-300 font-bold">
-                      Physical Home Entry Governance
-                    </div>
-                    <h2 className="text-lg font-bold">
-                      Gate Check-In OTP &amp; Vetted On-Site Crew Pass
-                    </h2>
-                  </div>
-                </div>
-                <span className="px-3 py-1 rounded-full text-xs font-bold bg-white/10 border border-white/20">
-                  {activeVisit.status.replace(/_/g, " ")}
-                </span>
-              </div>
+      {/* Compact Metric Strip */}
+      <div className="border-2 border-iron-950 bg-iron-950 text-white rounded-none p-3 shadow-brutal font-mono text-xs font-bold flex flex-wrap items-center justify-between gap-3 tabular-nums">
+        <div className="flex items-center gap-1.5 text-emerald-400">
+          <Banknote className="w-4 h-4" />
+          <span>ESCROW: {formatZar(escrowHeldZar)}</span>
+        </div>
+        <div className="flex items-center gap-1.5 text-white">
+          <QrCode className="w-4 h-4 text-safety-400" />
+          <span>GATE OTP: {gateOtpDisplay}</span>
+        </div>
+        <div className="flex items-center gap-1.5 text-mortar-200">
+          <Users className="w-4 h-4" />
+          <span>QUOTES: {job.quotes.length}</span>
+        </div>
+        <div className="flex items-center gap-1.5 text-mortar-300">
+          <Receipt className="w-4 h-4" />
+          <span>CALL-OUT: {formatZar(job.callOutDepositZar)}</span>
+        </div>
+      </div>
 
-              {/* Expected People Through the Gate */}
-              <div className="space-y-3">
-                <p className="text-xs text-emerald-200 font-medium">
-                  ONLY the SAPS-cleared individuals listed below are authorized to
-                  step onto your property:
-                </p>
+      {/* 5-Tab Workspace Navigation */}
+      <div className="border-2 border-iron-950 bg-mortar-200 p-1.5 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-1.5 rounded-none shadow-brutal-sm">
+        {tabs.map((tab) => {
+          const isActive = activeTab === tab.id;
+          return (
+            <button
+              key={tab.id}
+              type="button"
+              onClick={() => {
+                setActiveTab(tab.id);
+                setUserSelectedTab(true);
+              }}
+              className={`py-2.5 px-3 text-xs font-mono font-bold uppercase tracking-wider text-left border-2 transition-all duration-150 ease-out flex items-center justify-between gap-1.5 rounded-none ${
+                isActive
+                  ? "bg-brick-600 text-white border-iron-950 shadow-brutal-sm font-black"
+                  : "bg-white text-iron-950 border-iron-950 hover:bg-mortar-100 hover:text-brick-600"
+              } active:translate-x-[2px] active:translate-y-[2px] active:shadow-none duration-100`}
+            >
+              <span className="truncate">{tab.label}</span>
+              <span
+                className={`text-[10px] px-1.5 py-0.5 border font-mono font-bold rounded-none shrink-0 ${
+                  isActive
+                    ? "bg-brick-800 text-white border-brick-950"
+                    : "bg-mortar-100 text-iron-950 border-iron-950"
+                }`}
+              >
+                {tab.badge}
+              </span>
+            </button>
+          );
+        })}
+      </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  {/* Lead Artisan Badge */}
-                  <div className="bg-white/10 border border-white/15 rounded-xl p-3.5 flex items-center gap-3">
-                    <div className="w-12 h-12 rounded-full bg-emerald-500 text-slate-950 font-extrabold flex items-center justify-center text-base shrink-0">
-                      {activeVisit.leadWorkerProfile.user.avatarUrl || "PRO"}
-                    </div>
-                    <div className="text-xs space-y-0.5">
-                      <div className="font-bold text-white text-sm">
-                        {activeVisit.leadWorkerProfile.user.name} (Lead)
-                      </div>
-                      <div className="text-emerald-300 font-semibold">
-                        SAPS: {activeVisit.leadWorkerProfile.sapsCertificateRef}
-                      </div>
-                      <div className="text-slate-300">
-                        ID: {activeVisit.leadWorkerProfile.saIdMasked}
-                      </div>
-                    </div>
-                  </div>
+      <div className="transition-all duration-150 ease-out">
+        {/* TAB 1: ESCROW & MILESTONES */}
+        {activeTab === "escrow" && (
+          <div className="border-2 border-iron-950 bg-white rounded-none p-5 shadow-brutal space-y-4">
+            <div className="flex flex-wrap items-center justify-between gap-3 border-b-2 border-mortar-300 pb-3">
+              <h2 className="text-lg font-black text-iron-950 uppercase flex items-center gap-2">
+                <Banknote className="w-5 h-5 text-brick-600" />
+                Milestones ({job.milestones.length})
+              </h2>
 
-                  {/* Accompanying SAPS-Cleared Crew Helpers */}
-                  {activeVisit.crewMembers.map((cm) => (
-                    <div
-                      key={cm.id}
-                      className="bg-white/10 border border-white/15 rounded-xl p-3.5 flex items-center gap-3"
-                    >
-                      <div className="w-12 h-12 rounded-full bg-amber-400 text-slate-950 font-extrabold flex items-center justify-center text-xs shrink-0">
-                        CREW
-                      </div>
-                      <div className="text-xs space-y-0.5">
-                        <div className="font-bold text-white text-sm">
-                          {cm.workerProfile.user.name}
-                        </div>
-                        <div className="text-amber-300 font-semibold">
-                          SAPS: {cm.workerProfile.sapsCertificateRef}
-                        </div>
-                        <div className="text-slate-300">
-                          ID: {cm.workerProfile.saIdMasked} • {cm.roleOnSite}
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              {activeVisit.status === "AWAITING_ARRIVAL" && (
-                <div className="bg-slate-950/60 rounded-xl p-4 border border-white/10 space-y-3">
-                  <div className="flex flex-wrap items-center justify-between gap-2 text-xs">
-                    <span className="text-slate-300">
-                      Demo Helper — Expected 6-Digit Gate OTP:
-                    </span>
-                    <button
-                      type="button"
-                      onClick={() => setOtpInput(activeVisit.checkInCode)}
-                      className="font-mono font-bold text-sm px-2.5 py-1 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 hover:bg-emerald-500/30"
-                    >
-                      {activeVisit.checkInCode} (Click to Fill)
-                    </button>
-                  </div>
-
-                  <label className="flex items-start gap-2.5 text-xs text-slate-200 cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={faceConfirmed}
-                      onChange={(e) => setFaceConfirmed(e.target.checked)}
-                      className="mt-0.5 rounded"
-                    />
-                    <span>
-                      I visually matched every person at my gate against the SAPS
-                      photo badges above (zero unvetted casual helpers present).
-                    </span>
-                  </label>
-
-                  <div className="flex flex-wrap gap-2">
-                    <input
-                      type="text"
-                      maxLength={6}
-                      value={otpInput}
-                      onChange={(e) => setOtpInput(e.target.value)}
-                      placeholder="Enter 6-digit Gate OTP"
-                      className="bg-white text-slate-900 rounded-xl px-3.5 py-2 text-sm font-mono font-bold w-48"
-                    />
-                    <button
-                      type="button"
-                      onClick={handleGateVerify}
-                      className="px-4 py-2 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-xs transition"
-                    >
-                      Verify Arrival &amp; Open Gate
-                    </button>
-                    <button
-                      type="button"
-                      onClick={handleGatePanic}
-                      className="px-3.5 py-2 rounded-xl bg-red-500/20 hover:bg-red-500/30 border border-red-400/40 text-red-200 font-semibold text-xs transition"
-                    >
-                      Report Unmatched Person (Freeze!)
-                    </button>
-                  </div>
-                </div>
-              )}
-
-              {activeVisit.status === "VERIFIED_ON_SITE" && (
-                <div className="p-3.5 rounded-xl bg-emerald-500/20 border border-emerald-400/40 text-xs text-emerald-100 flex items-center justify-between">
-                  <span>
-                    ✓ Verified On-Site at{" "}
-                    {activeVisit.arrivedAt
-                      ? new Date(activeVisit.arrivedAt).toLocaleTimeString()
-                      : "Today"}{" "}
-                    — SAPS badges &amp; Gate OTP matched.
-                  </span>
-                </div>
-              )}
+              <button
+                type="button"
+                onClick={() => setShowVariationForm(!showVariationForm)}
+                className="brutal-btn brutal-btn-outline inline-flex items-center gap-1.5 px-3 py-1.5 text-xs"
+              >
+                <Plus className="w-3.5 h-3.5 text-brick-600" />
+                {showVariationForm ? "[-] CLOSE VARIATION" : "[+ ADD VARIATION]"}
+              </button>
             </div>
-          )}
 
-          {/* 2. MILESTONE ESCROW & 1-TAP SCOPE VARIATIONS */}
-          {job.milestones.length > 0 && (
-            <div className="bg-white rounded-2xl p-6 border border-slate-200 shadow-sm space-y-4">
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <div className="flex items-center gap-2">
-                  <Banknote className="w-5 h-5 text-emerald-700" />
-                  <h2 className="font-bold text-lg text-slate-900">
-                    Regulated Milestone Escrow &amp; Payout Splits
-                  </h2>
+            {showVariationForm && (
+              <div className="p-4 border-2 border-iron-950 bg-mortar-50 space-y-3 rounded-none shadow-brutal-sm">
+                <div className="font-mono text-xs font-black uppercase text-brick-600">
+                  // ADD SCOPE VARIATION (0% FEE ON MATERIALS)
                 </div>
-                <button
-                  type="button"
-                  onClick={() => setShowVariationForm(!showVariationForm)}
-                  className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-800 text-xs font-semibold"
-                >
-                  <Plus className="w-3.5 h-3.5" />
-                  Scope Variation Mini-Milestone
-                </button>
-              </div>
 
-              {showVariationForm && (
-                <div className="p-4 rounded-xl bg-slate-50 border border-slate-200 space-y-3 text-xs">
-                  <div className="font-bold text-slate-900">
-                    Log On-Site Scope Variation (Solves Hidden Damage Without Cash Arguments)
-                  </div>
+                <div>
+                  <label className="block text-xs font-mono font-bold text-iron-950 uppercase mb-1">
+                    Description
+                  </label>
                   <input
                     type="text"
                     value={varTitle}
                     onChange={(e) => setVarTitle(e.target.value)}
-                    placeholder="e.g. Replace corroded copper shut-off valve behind tiles"
-                    className="w-full rounded-lg border border-slate-300 px-3 py-2 bg-white"
+                    placeholder="e.g. Replace corroded valve behind tiles"
+                    className="w-full border-2 border-iron-950 px-3 py-2 text-xs bg-white rounded-none shadow-brutal-sm font-sans focus:outline-none"
                   />
-                  <div className="grid grid-cols-3 gap-2">
-                    <div>
-                      <label className="block text-slate-600 mb-1">Extra Labour (ZAR)</label>
-                      <input
-                        type="number"
-                        value={varLabour}
-                        onChange={(e) => setVarLabour(e.target.value)}
-                        className="w-full rounded-lg border border-slate-300 px-2.5 py-1.5 bg-white"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-slate-600 mb-1">Materials Slip (0% Fee)</label>
-                      <input
-                        type="number"
-                        value={varMaterials}
-                        onChange={(e) => setVarMaterials(e.target.value)}
-                        className="w-full rounded-lg border border-slate-300 px-2.5 py-1.5 bg-white"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-slate-600 mb-1">Builders Slip #</label>
-                      <input
-                        type="text"
-                        value={varSlip}
-                        onChange={(e) => setVarSlip(e.target.value)}
-                        className="w-full rounded-lg border border-slate-300 px-2.5 py-1.5 bg-white"
-                      />
-                    </div>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() =>
-                      handleMilestoneAction({
-                        action: "CREATE_VARIATION",
-                        title: varTitle || "Rusted pipe & fitting replacement behind wall",
-                        labourAmountZar: Number(varLabour),
-                        materialsAmountZar: Number(varMaterials),
-                        materialReceiptRef: varSlip,
-                      })
-                    }
-                    className="px-4 py-2 rounded-lg bg-slate-900 text-white font-bold"
-                  >
-                    Add Variation Milestone
-                  </button>
                 </div>
-              )}
 
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  <div>
+                    <label className="block text-xs font-mono font-bold text-iron-950 uppercase mb-1">
+                      Extra Labour (ZAR)
+                    </label>
+                    <input
+                      type="number"
+                      value={varLabour}
+                      onChange={(e) => setVarLabour(e.target.value)}
+                      className="w-full border-2 border-iron-950 px-3 py-2 text-xs bg-white rounded-none font-mono font-bold focus:outline-none"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-mono font-bold text-iron-950 uppercase mb-1">
+                      Materials (0% Fee)
+                    </label>
+                    <input
+                      type="number"
+                      value={varMaterials}
+                      onChange={(e) => setVarMaterials(e.target.value)}
+                      className="w-full border-2 border-iron-950 px-3 py-2 text-xs bg-white rounded-none font-mono font-bold focus:outline-none"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-mono font-bold text-iron-950 uppercase mb-1">
+                      Hardware Slip #
+                    </label>
+                    <input
+                      type="text"
+                      value={varSlip}
+                      onChange={(e) => setVarSlip(e.target.value)}
+                      className="w-full border-2 border-iron-950 px-3 py-2 text-xs bg-white rounded-none font-mono focus:outline-none"
+                    />
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() =>
+                    handleMilestoneAction({
+                      action: "CREATE_VARIATION",
+                      title: varTitle || "Rusted pipe & fitting replacement",
+                      labourAmountZar: Number(varLabour),
+                      materialsAmountZar: Number(varMaterials),
+                      materialReceiptRef: varSlip,
+                    })
+                  }
+                  className="brutal-btn brutal-btn-dark px-4 py-2 text-xs"
+                >
+                  ADD VARIATION MILESTONE
+                </button>
+              </div>
+            )}
+
+            {job.milestones.length === 0 ? (
+              <div className="border-2 border-dashed border-iron-950 p-6 text-center bg-mortar-50 font-mono text-xs text-iron-600">
+                No milestones yet. Accept a quote in Tab 03 to start escrow.
+              </div>
+            ) : (
               <div className="space-y-3">
                 {job.milestones.map((ms) => {
                   const preview = computeEscrowSplit({
@@ -742,70 +733,67 @@ export default function JobWorkspacePage() {
                   return (
                     <div
                       key={ms.id}
-                      className="rounded-xl border border-slate-200 p-4 space-y-3 bg-slate-50/60"
+                      className="border-2 border-iron-950 rounded-none p-4 space-y-3 bg-white shadow-brutal-sm"
                     >
                       <div className="flex flex-wrap items-start justify-between gap-2">
                         <div>
                           <div className="flex items-center gap-2">
-                            <span className="text-xs font-bold text-slate-500">
-                              #{ms.sequence} • {ms.kind.replace(/_/g, " ")}
+                            <span className="font-mono text-xs font-bold text-iron-600">
+                              #{ms.sequence}
                             </span>
-                            <span className="px-2 py-0.5 rounded text-[11px] font-bold bg-emerald-100 text-emerald-900">
+                            <span className="font-mono text-xs font-bold uppercase px-2 py-0.5 border border-iron-950 bg-mortar-100 text-iron-950 rounded-none">
                               {ms.status.replace(/_/g, " ")}
                             </span>
                           </div>
-                          <h3 className="font-bold text-slate-900 text-sm mt-1">
+                          <h3 className="text-sm font-black text-iron-950 uppercase mt-1">
                             {ms.title}
                           </h3>
-                          <p className="text-xs text-slate-600 mt-0.5">
-                            {ms.description}
-                          </p>
                         </div>
 
                         {tx && (
-                          <span className="text-[11px] font-mono bg-white px-2.5 py-1 rounded border border-slate-200 text-slate-600">
+                          <span className="font-mono text-[11px] font-bold bg-mortar-100 px-2 py-0.5 border border-iron-950 text-iron-800 rounded-none">
                             {tx.providerRef}
                           </span>
                         )}
                       </div>
 
-                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs bg-white p-3 rounded-lg border border-slate-200">
+                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 bg-mortar-50 p-3 border-2 border-iron-950 rounded-none text-xs font-mono">
                         <div>
-                          <div className="text-slate-500">Labour Quote</div>
-                          <div className="font-bold text-slate-900">
+                          <div className="text-iron-600 text-[10px] uppercase">Labour</div>
+                          <div className="font-black text-iron-950">
                             {formatZar(ms.labourAmountZar)}
                           </div>
                         </div>
                         <div>
-                          <div className="text-slate-500">Materials (0% Fee)</div>
-                          <div className="font-bold text-slate-900">
+                          <div className="text-iron-600 text-[10px] uppercase">Materials (0%)</div>
+                          <div className="font-black text-iron-950">
                             {formatZar(ms.materialsAmountZar)}
                           </div>
                         </div>
                         <div>
-                          <div className="text-slate-500">Artisan Net Payout</div>
-                          <div className="font-bold text-emerald-700">
+                          <div className="text-iron-600 text-[10px] uppercase">Artisan Net</div>
+                          <div className="font-black text-brick-600">
                             {formatZar(tx?.workerNetPayoutZar ?? preview.workerNetPayoutZar)}
                           </div>
                         </div>
                         <div>
-                          <div className="text-slate-500">Your Platform Cut</div>
-                          <div className="font-bold text-amber-700">
+                          <div className="text-iron-600 text-[10px] uppercase">Platform Cut</div>
+                          <div className="font-black text-iron-950">
                             {formatZar(tx?.platformTotalCutZar ?? preview.platformTotalCutZar)}
                           </div>
                         </div>
                       </div>
 
                       {ms.materialReceiptRef && (
-                        <div className="text-[11px] text-slate-600 flex items-center gap-1.5">
-                          <Receipt className="w-3.5 h-3.5 text-amber-600" />
-                          Verified Hardware Slip Ref: <strong>{ms.materialReceiptRef}</strong>
+                        <div className="text-xs font-mono text-iron-700 flex items-center gap-1.5">
+                          <Receipt className="w-3.5 h-3.5 text-brick-600 shrink-0" />
+                          <span>Slip: <strong>{ms.materialReceiptRef}</strong></span>
                         </div>
                       )}
 
-                      {/* Milestone Action Buttons */}
+                      {/* Role-tailored Milestone Actions */}
                       <div className="flex flex-wrap gap-2 pt-1">
-                        {ms.status === "AWAITING_FUNDING" && (
+                        {ms.status === "AWAITING_FUNDING" && !isWorkerView && (
                           <button
                             type="button"
                             onClick={() =>
@@ -815,58 +803,63 @@ export default function JobWorkspacePage() {
                                 paymentMethod,
                               })
                             }
-                            className="px-4 py-2 rounded-lg bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-bold"
+                            className="brutal-btn brutal-btn-primary px-4 py-2 text-xs"
                           >
-                            Lock {formatZar(preview.grossBuyerPaidZar)} in TradeSafe Escrow
+                            FUND {formatZar(preview.grossBuyerPaidZar)} IN ESCROW
                           </button>
                         )}
 
                         {ms.status === "HELD_IN_ESCROW" && (
                           <>
-                            <button
-                              type="button"
-                              onClick={() =>
-                                handleMilestoneAction({
-                                  action: "SUBMIT_WORK",
-                                  milestoneId: ms.id,
-                                  materialReceiptRef:
-                                    ms.materialReceiptRef || "BW-SLIP-VERIFIED-884",
-                                })
-                              }
-                              className="px-3.5 py-2 rounded-lg bg-slate-900 hover:bg-slate-800 text-white text-xs font-semibold"
-                            >
-                              Artisan: Mark Work Done
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() =>
-                                handleMilestoneAction({
-                                  action: "RELEASE_ESCROW",
-                                  milestoneId: ms.id,
-                                })
-                              }
-                              className="px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold"
-                            >
-                              Homeowner: Approve &amp; Release Split Payout
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() =>
-                                handleMilestoneAction({
-                                  action: "RAISE_DISPUTE",
-                                  milestoneId: ms.id,
-                                  disputeReason:
-                                    "Tile alignment / leak check requested before final release.",
-                                })
-                              }
-                              className="px-3 py-2 rounded-lg bg-red-50 hover:bg-red-100 text-red-700 border border-red-200 text-xs font-semibold"
-                            >
-                              Freeze / Dispute
-                            </button>
+                            {isWorkerView ? (
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  handleMilestoneAction({
+                                    action: "SUBMIT_WORK",
+                                    milestoneId: ms.id,
+                                    materialReceiptRef:
+                                      ms.materialReceiptRef || "BW-SLIP-VERIFIED-884",
+                                  })
+                                }
+                                className="brutal-btn brutal-btn-dark px-4 py-2 text-xs"
+                              >
+                                MARK WORK DONE
+                              </button>
+                            ) : (
+                              <>
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    handleMilestoneAction({
+                                      action: "RELEASE_ESCROW",
+                                      milestoneId: ms.id,
+                                    })
+                                  }
+                                  className="brutal-btn brutal-btn-primary px-4 py-2 text-xs"
+                                >
+                                  APPROVE &amp; RELEASE PAYOUT
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    handleMilestoneAction({
+                                      action: "RAISE_DISPUTE",
+                                      milestoneId: ms.id,
+                                      disputeReason:
+                                        "Inspection requested before final release.",
+                                    })
+                                  }
+                                  className="brutal-btn bg-red-100 text-red-950 border-2 border-iron-950 hover:bg-red-200 px-3 py-2 text-xs"
+                                >
+                                  DISPUTE
+                                </button>
+                              </>
+                            )}
                           </>
                         )}
 
-                        {ms.status === "WORK_SUBMITTED" && (
+                        {ms.status === "WORK_SUBMITTED" && !isWorkerView && (
                           <button
                             type="button"
                             onClick={() =>
@@ -875,129 +868,17 @@ export default function JobWorkspacePage() {
                                 milestoneId: ms.id,
                               })
                             }
-                            className="px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold"
+                            className="brutal-btn brutal-btn-primary px-4 py-2 text-xs"
                           >
-                            Homeowner: Inspect &amp; Release{" "}
+                            APPROVE &amp; RELEASE{" "}
                             {formatZar(tx?.workerNetPayoutZar ?? preview.workerNetPayoutZar)}
                           </button>
                         )}
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          )}
 
-          {/* 3. QUOTES LIST & ESCROW ACCEPTANCE */}
-          <div className="bg-white rounded-2xl p-6 border border-slate-200 shadow-sm space-y-4">
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <h2 className="font-bold text-lg text-slate-900">
-                Artisan Quotes ({job.quotes.length})
-              </h2>
-              {!job.selectedWorkerProfileId && job.quotes.length > 0 && (
-                <select
-                  value={paymentMethod}
-                  onChange={(e) => setPaymentMethod(e.target.value)}
-                  className="text-xs border border-slate-300 rounded-lg px-2.5 py-1.5 bg-slate-50 font-medium"
-                >
-                  <option value="OZOW_INSTANT_EFT">Pay via Ozow Instant EFT</option>
-                  <option value="CAPITEC_PAY">Pay via Capitec Pay</option>
-                  <option value="CARD_3DS">Pay via 3D-Secure Card</option>
-                </select>
-              )}
-            </div>
-
-            {job.quotes.length === 0 ? (
-              <p className="text-xs text-slate-500">
-                No quotes yet. Switch to a SAPS-cleared Worker persona at the top bar
-                to submit an itemized Labour + Materials quote!
-              </p>
-            ) : (
-              <div className="space-y-4">
-                {job.quotes.map((q) => {
-                  const split = computeEscrowSplit({
-                    labourZar: q.labourAmountZar,
-                    materialsZar: q.materialsEstimateZar,
-                    config,
-                  });
-
-                  return (
-                    <div
-                      key={q.id}
-                      className="rounded-xl border border-slate-200 p-4 space-y-3 hover:border-emerald-400 transition"
-                    >
-                      <div className="flex flex-wrap items-start justify-between gap-2">
-                        <div>
-                          <div className="flex flex-wrap items-center gap-2">
-                            <span className="font-bold text-slate-900 text-base">
-                              {q.workerProfile.user.name}
-                            </span>
-                            <span className="inline-flex items-center gap-0.5 text-xs font-bold text-amber-600">
-                              <Star className="w-3.5 h-3.5 fill-amber-400 text-amber-400" />
-                              {q.workerProfile.user.ratingAvg.toFixed(2)}
-                            </span>
-                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-emerald-100 text-emerald-900 text-[11px] font-bold">
-                              <ShieldCheck className="w-3 h-3 text-emerald-700" />
-                              {q.workerProfile.sapsCertificateRef}
-                            </span>
-                            {q.workerProfile.certifications
-                              .filter((c) => c.status === "VERIFIED")
-                              .map((c) => (
-                                <span
-                                  key={c.id}
-                                  className="px-2 py-0.5 rounded bg-amber-100 text-amber-900 text-[11px] font-bold"
-                                >
-                                  {c.body}: {c.registrationNumber}
-                                </span>
-                              ))}
-                          </div>
-                          <div className="text-xs text-slate-500 mt-0.5">
-                            {q.workerProfile.yearsExperience} yrs exp • Hub:{" "}
-                            {q.workerProfile.nearestHardwareHub}
-                          </div>
-                        </div>
-
-                        <div className="text-right">
-                          <div className="text-lg font-extrabold text-slate-900">
-                            {formatZar(split.grossBuyerPaidZar)}
-                          </div>
-                          <div className="text-[11px] text-slate-500">
-                            incl. {formatZar(split.buyerTrustFeeZar)} Escrow Trust Fee
-                          </div>
-                        </div>
-                      </div>
-
-                      <p className="text-xs text-slate-700 bg-slate-50 p-3 rounded-lg">
-                        {q.scopeSummary}
-                      </p>
-
-                      <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-slate-600">
-                        <div>
-                          Labour: <strong>{formatZar(q.labourAmountZar)}</strong> •
-                          Hardware Materials (0% Fee):{" "}
-                          <strong>{formatZar(q.materialsEstimateZar)}</strong> • Est.{" "}
-                          {q.estimatedDays} day(s)
-                        </div>
-
-                        {!job.selectedWorkerProfileId && q.status === "PENDING" && (
-                          <div className="flex flex-wrap gap-2">
-                            <button
-                              type="button"
-                              onClick={() => handleAcceptQuote(q.id, "CALL_OUT_FIRST")}
-                              className="px-3 py-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 text-white font-semibold"
-                            >
-                              Book Call-Out Only ({formatZar(job.callOutDepositZar)})
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() =>
-                                handleAcceptQuote(q.id, "FULL_QUOTE_ESCROW")
-                              }
-                              className="px-3.5 py-1.5 rounded-lg bg-emerald-700 hover:bg-emerald-800 text-white font-bold"
-                            >
-                              Accept &amp; Lock Full Quote in Escrow
-                            </button>
+                        {ms.status === "RELEASED" && (
+                          <div className="verified-stamp -rotate-12 scale-100 duration-150">
+                            <CheckCircle2 className="w-4 h-4 text-emerald-700" />
+                            [ESCROW RELEASED]
                           </div>
                         )}
                       </div>
@@ -1007,153 +888,409 @@ export default function JobWorkspacePage() {
               </div>
             )}
           </div>
+        )}
 
-          {/* 4. WORKER QUOTE BUILDER (Tests Tier 1 Block vs Tier 2/3 Approval + Crew Manifest!) */}
-          {isWorkerView && !job.selectedWorkerProfileId && (
-            <form
-              onSubmit={handleSubmitQuote}
-              className="bg-white rounded-2xl p-6 border-2 border-emerald-600/30 shadow-sm space-y-4"
-            >
-              <div className="flex items-center justify-between">
-                <div>
-                  <span className="text-[11px] font-bold uppercase text-emerald-700">
-                    Viewing as Artisan: {currentUser?.name}
-                  </span>
-                  <h3 className="font-bold text-slate-900 text-lg">
-                    Submit Itemized Quote &amp; Register On-Site Crew
-                  </h3>
+        {/* TAB 2: GATE PASS & CREW */}
+        {activeTab === "gate" && (
+          <div className="space-y-4">
+            {!activeVisit ? (
+              <div className="border-2 border-iron-950 bg-white p-6 text-center space-y-3 shadow-brutal">
+                <Lock className="w-8 h-8 text-safety-600 mx-auto" />
+                <div className="font-mono text-xs font-black uppercase text-iron-950">
+                  GATE PASS LOCKED UNTIL ESCROW IS FUNDED
                 </div>
-                {currentUser?.workerProfile?.vettingTier ===
-                  "TIER_1_BROWSE_ONLY" && (
-                  <Link
-                    href="/worker/onboarding"
-                    className="text-xs font-bold px-3 py-1.5 rounded-lg bg-amber-100 text-amber-900 border border-amber-300"
-                  >
-                    Tier 1 (Complete SAPS Check →)
-                  </Link>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setActiveTab("quotes");
+                    setUserSelectedTab(true);
+                  }}
+                  className="brutal-btn brutal-btn-primary px-4 py-2 text-xs"
+                >
+                  VIEW QUOTES →
+                </button>
+              </div>
+            ) : (
+              <div className="border-2 border-iron-950 bg-white rounded-none p-5 shadow-brutal space-y-5">
+                <div className="flex flex-wrap items-center justify-between gap-2 border-b-2 border-mortar-300 pb-3">
+                  <h2 className="text-lg font-black text-iron-950 uppercase flex items-center gap-2">
+                    <QrCode className="w-5 h-5 text-brick-600" />
+                    Authorized Site Crew Manifest
+                  </h2>
+                  <span className="font-mono text-xs font-black uppercase px-2.5 py-0.5 bg-iron-950 text-white border-2 border-iron-950 rounded-none">
+                    {activeVisit.status}
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div className="border-2 border-iron-950 bg-mortar-50 p-3.5 flex items-center gap-3 rounded-none shadow-brutal-sm">
+                    <div className="w-12 h-12 border-2 border-iron-950 bg-brick-600 text-white font-black text-base flex items-center justify-center rounded-none shrink-0">
+                      {activeVisit.leadWorkerProfile.user.avatarUrl || "LEAD"}
+                    </div>
+                    <div className="font-mono text-xs space-y-0.5">
+                      <div className="font-black text-iron-950 uppercase">
+                        {activeVisit.leadWorkerProfile.user.name} (LEAD)
+                      </div>
+                      <div className="text-brick-600 font-bold">
+                        SAPS: {activeVisit.leadWorkerProfile.sapsCertificateRef}
+                      </div>
+                      <div className="text-iron-700">
+                        ID: {activeVisit.leadWorkerProfile.saIdMasked}
+                      </div>
+                    </div>
+                  </div>
+
+                  {activeVisit.crewMembers.map((cm) => (
+                    <div
+                      key={cm.id}
+                      className="border-2 border-iron-950 bg-mortar-50 p-3.5 flex items-center gap-3 rounded-none shadow-brutal-sm"
+                    >
+                      <div className="w-12 h-12 border-2 border-iron-950 bg-safety-500 text-iron-950 font-black text-xs flex items-center justify-center rounded-none shrink-0">
+                        CREW
+                      </div>
+                      <div className="font-mono text-xs space-y-0.5">
+                        <div className="font-black text-iron-950 uppercase">
+                          {cm.workerProfile.user.name}
+                        </div>
+                        <div className="text-safety-700 font-bold">
+                          SAPS: {cm.workerProfile.sapsCertificateRef}
+                        </div>
+                        <div className="text-iron-700">
+                          ID: {cm.workerProfile.saIdMasked}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                {activeVisit.status === "AWAITING_ARRIVAL" && (
+                  <div className="border-2 border-iron-950 bg-mortar-100 p-4 space-y-3 rounded-none shadow-brutal-sm">
+                    <div className="flex flex-wrap items-center justify-between gap-2 font-mono text-xs">
+                      <span className="font-bold text-iron-800 uppercase">
+                        Gate Check-In OTP:
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => setOtpInput(activeVisit.checkInCode)}
+                        className="brutal-btn brutal-btn-outline font-mono text-xs font-black px-2.5 py-1"
+                      >
+                        {activeVisit.checkInCode} (AUTO-FILL)
+                      </button>
+                    </div>
+
+                    <label className="flex items-center gap-2.5 text-xs font-bold text-iron-950 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={faceConfirmed}
+                        onChange={(e) => setFaceConfirmed(e.target.checked)}
+                        className="rounded-none border-2 border-iron-950 w-4 h-4 text-brick-600 focus:ring-0"
+                      />
+                      <span>Crew faces &amp; IDs match manifest (no unvetted helpers).</span>
+                    </label>
+
+                    <div className="flex flex-wrap gap-2 items-center">
+                      <input
+                        type="text"
+                        maxLength={6}
+                        value={otpInput}
+                        onChange={(e) => setOtpInput(e.target.value)}
+                        placeholder="000000"
+                        className="border-2 border-iron-950 bg-white text-iron-950 px-3 py-1.5 font-mono text-base font-black tracking-widest w-36 text-center rounded-none shadow-brutal-sm focus:outline-none"
+                      />
+                      <button
+                        type="button"
+                        onClick={handleGateVerify}
+                        className="brutal-btn brutal-btn-primary px-5 py-2 text-xs"
+                      >
+                        VERIFY &amp; OPEN GATE
+                      </button>
+                      <button
+                        type="button"
+                        onClick={handleGatePanic}
+                        className="brutal-btn bg-red-600 text-white hover:bg-red-700 px-3.5 py-2 text-xs"
+                      >
+                        PANIC FREEZE
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {activeVisit.status === "VERIFIED_ON_SITE" && (
+                  <div className="border-2 border-emerald-700 bg-emerald-50 p-3.5 flex flex-wrap items-center justify-between gap-2 shadow-brutal-sm rounded-none">
+                    <div className="font-mono text-xs font-black uppercase text-emerald-950">
+                      ✓ CREW VERIFIED ON-SITE
+                    </div>
+                    <div className="verified-stamp -rotate-12 scale-100 duration-150">
+                      <CheckCircle2 className="w-4 h-4 text-emerald-700" />
+                      [VERIFIED ON-SITE]
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* TAB 3: QUOTES & BIDS */}
+        {activeTab === "quotes" && (
+          <div className="space-y-5">
+            <div className="border-2 border-iron-950 bg-white rounded-none p-5 shadow-brutal space-y-4">
+              <div className="flex flex-wrap items-center justify-between gap-3 border-b-2 border-mortar-300 pb-3">
+                <h2 className="text-lg font-black text-iron-950 uppercase">
+                  Quotes ({job.quotes.length})
+                </h2>
+
+                {!isWorkerView && !job.selectedWorkerProfileId && job.quotes.length > 0 && (
+                  <div className="flex items-center gap-2 font-mono text-xs">
+                    <select
+                      value={paymentMethod}
+                      onChange={(e) => setPaymentMethod(e.target.value)}
+                      className="border-2 border-iron-950 bg-white px-2.5 py-1 font-bold rounded-none shadow-brutal-sm"
+                    >
+                      <option value="OZOW_INSTANT_EFT">Ozow Instant EFT</option>
+                      <option value="CAPITEC_PAY">Capitec Pay</option>
+                      <option value="CARD_3DS">3D-Secure Card</option>
+                    </select>
+                  </div>
                 )}
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
-                <div>
-                  <label className="block font-semibold text-slate-700 mb-1">
-                    Skilled Labour (ZAR)
-                  </label>
-                  <input
-                    type="number"
-                    value={quoteLabour}
-                    onChange={(e) => setQuoteLabour(e.target.value)}
-                    className="w-full rounded-lg border border-slate-300 px-3 py-2"
-                  />
+              {job.quotes.length === 0 ? (
+                <div className="border-2 border-dashed border-iron-950 p-6 text-center bg-mortar-50 font-mono text-xs text-iron-600">
+                  No quotes submitted yet.
                 </div>
-                <div>
-                  <label className="block font-semibold text-slate-700 mb-1">
-                    Builders Materials (0% Fee!)
-                  </label>
-                  <input
-                    type="number"
-                    value={quoteMaterials}
-                    onChange={(e) => setQuoteMaterials(e.target.value)}
-                    className="w-full rounded-lg border border-slate-300 px-3 py-2"
-                  />
-                </div>
-                <div>
-                  <label className="block font-semibold text-slate-700 mb-1">
-                    Estimated Days
-                  </label>
-                  <input
-                    type="number"
-                    min={1}
-                    value={quoteDays}
-                    onChange={(e) => setQuoteDays(e.target.value)}
-                    className="w-full rounded-lg border border-slate-300 px-3 py-2"
-                  />
-                </div>
-              </div>
+              ) : (
+                <div className="space-y-3">
+                  {job.quotes.map((q) => {
+                    const split = computeEscrowSplit({
+                      labourZar: q.labourAmountZar,
+                      materialsZar: q.materialsEstimateZar,
+                      config,
+                    });
 
-              <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">
-                  Work Scope &amp; Materials Note
-                </label>
-                <textarea
-                  rows={2}
-                  value={quoteSummary}
-                  onChange={(e) => setQuoteSummary(e.target.value)}
-                  className="w-full rounded-lg border border-slate-300 px-3 py-2 text-xs"
-                />
-              </div>
+                    return (
+                      <div
+                        key={q.id}
+                        className="border-2 border-iron-950 rounded-none p-4 space-y-3 bg-white shadow-brutal-sm"
+                      >
+                        <div className="flex flex-wrap items-start justify-between gap-2">
+                          <div>
+                            <div className="flex flex-wrap items-center gap-2">
+                              <span className="font-black text-iron-950 text-sm uppercase">
+                                {q.workerProfile.user.name}
+                              </span>
+                              <span className="font-mono text-xs font-bold text-safety-600 flex items-center gap-0.5">
+                                <Star className="w-3.5 h-3.5 fill-safety-500 text-safety-500" />
+                                {q.workerProfile.user.ratingAvg.toFixed(1)}
+                              </span>
+                              <span className="font-mono text-[11px] font-bold px-2 py-0.5 bg-brick-50 text-brick-700 border border-iron-950 flex items-center gap-1 rounded-none">
+                                <ShieldCheck className="w-3 h-3 text-brick-600" />
+                                {q.workerProfile.sapsCertificateRef}
+                              </span>
+                              {q.workerProfile.certifications
+                                .filter((c) => c.status === "VERIFIED")
+                                .map((c) => (
+                                  <span
+                                    key={c.id}
+                                    className="font-mono text-[11px] font-bold px-2 py-0.5 bg-safety-100 text-safety-900 border border-iron-950 rounded-none"
+                                  >
+                                    {c.body}: {c.registrationNumber}
+                                  </span>
+                                ))}
+                            </div>
+                          </div>
 
-              {/* Vetted Crew Manifest Selector */}
-              <div className="p-3 rounded-xl bg-slate-50 border border-slate-200 space-y-2">
-                <div className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
-                  <Users className="w-4 h-4 text-emerald-700" />
-                  Bringing a Site Assistant? Attach SAPS-Cleared Helpers to Gate Pass:
+                          <div className="text-right font-mono">
+                            <div className="text-lg font-black text-iron-950">
+                              {formatZar(split.grossBuyerPaidZar)}
+                            </div>
+                            <div className="text-[11px] text-iron-600">
+                              incl. {formatZar(split.buyerTrustFeeZar)} fee
+                            </div>
+                          </div>
+                        </div>
+
+                        <p className="text-xs text-iron-800 font-sans">
+                          {q.scopeSummary}
+                        </p>
+
+                        <div className="flex flex-wrap items-center justify-between gap-2 text-xs font-mono pt-2 border-t border-iron-200">
+                          <div className="text-iron-700">
+                            Labour: <strong>{formatZar(q.labourAmountZar)}</strong> • Materials (0%):{" "}
+                            <strong>{formatZar(q.materialsEstimateZar)}</strong> • {q.estimatedDays}d
+                          </div>
+
+                          {!isWorkerView &&
+                            !job.selectedWorkerProfileId &&
+                            q.status === "PENDING" && (
+                              <div className="flex flex-wrap gap-2">
+                                <button
+                                  type="button"
+                                  onClick={() => handleAcceptQuote(q.id, "CALL_OUT_FIRST")}
+                                  className="brutal-btn brutal-btn-outline px-3 py-1.5 text-xs"
+                                >
+                                  CALL-OUT ({formatZar(job.callOutDepositZar)})
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => handleAcceptQuote(q.id, "FULL_QUOTE_ESCROW")}
+                                  className="brutal-btn brutal-btn-primary px-3.5 py-1.5 text-xs"
+                                >
+                                  ACCEPT &amp; FUND ESCROW
+                                </button>
+                              </div>
+                            )}
+
+                          {job.selectedWorkerProfileId === q.workerProfileId && (
+                            <span className="font-mono text-xs font-black uppercase px-2.5 py-1 bg-brick-600 text-white border-2 border-iron-950 rounded-none">
+                              SELECTED
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
-                <div className="flex flex-wrap gap-2">
-                  {clearedCrewPool
-                    .filter((w) => w.id !== currentUser?.workerProfile?.id)
-                    .map((w) => {
-                      const checked = selectedCrewIds.includes(w.id);
-                      return (
-                        <button
-                          key={w.id}
-                          type="button"
-                          onClick={() =>
-                            setSelectedCrewIds(
+              )}
+            </div>
+
+            {/* Worker Quote Submission Builder (Only shown to Workers) */}
+            {isWorkerView && !job.selectedWorkerProfileId && (
+              <form
+                onSubmit={handleSubmitQuote}
+                className="border-2 border-brick-600 bg-white rounded-none p-5 shadow-brutal space-y-4"
+              >
+                <div className="flex flex-wrap items-center justify-between gap-2 border-b-2 border-mortar-300 pb-2.5">
+                  <h3 className="text-base font-black text-iron-950 uppercase">
+                    Submit Quote ({currentUser?.name})
+                  </h3>
+
+                  {currentUser?.workerProfile?.vettingTier === "TIER_1_BROWSE_ONLY" && (
+                    <Link
+                      href="/worker/onboarding"
+                      className="brutal-btn bg-safety-100 text-safety-950 border-2 border-iron-950 px-3 py-1 text-xs font-mono font-bold"
+                    >
+                      Complete SAPS Clearance →
+                    </Link>
+                  )}
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  <div>
+                    <label className="block font-mono text-xs font-bold text-iron-950 uppercase mb-1">
+                      Labour (ZAR)
+                    </label>
+                    <input
+                      type="number"
+                      value={quoteLabour}
+                      onChange={(e) => setQuoteLabour(e.target.value)}
+                      className="w-full border-2 border-iron-950 px-3 py-2 text-xs font-mono font-bold rounded-none bg-white focus:outline-none"
+                    />
+                  </div>
+                  <div>
+                    <label className="block font-mono text-xs font-bold text-iron-950 uppercase mb-1">
+                      Materials (0% Fee)
+                    </label>
+                    <input
+                      type="number"
+                      value={quoteMaterials}
+                      onChange={(e) => setQuoteMaterials(e.target.value)}
+                      className="w-full border-2 border-iron-950 px-3 py-2 text-xs font-mono font-bold rounded-none bg-white focus:outline-none"
+                    />
+                  </div>
+                  <div>
+                    <label className="block font-mono text-xs font-bold text-iron-950 uppercase mb-1">
+                      Days
+                    </label>
+                    <input
+                      type="number"
+                      min={1}
+                      value={quoteDays}
+                      onChange={(e) => setQuoteDays(e.target.value)}
+                      className="w-full border-2 border-iron-950 px-3 py-2 text-xs font-mono font-bold rounded-none bg-white focus:outline-none"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block font-mono text-xs font-bold text-iron-950 uppercase mb-1">
+                    Scope Note
+                  </label>
+                  <textarea
+                    rows={2}
+                    value={quoteSummary}
+                    onChange={(e) => setQuoteSummary(e.target.value)}
+                    className="w-full border-2 border-iron-950 px-3 py-2 text-xs rounded-none bg-white font-sans focus:outline-none"
+                  />
+                </div>
+
+                <div className="p-3 border-2 border-iron-950 bg-mortar-50 space-y-2 rounded-none">
+                  <div className="font-mono text-xs font-bold text-iron-950 flex items-center gap-1.5 uppercase">
+                    <Users className="w-3.5 h-3.5 text-brick-600" />
+                    Attach Vetted Crew to Gate Pass:
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    {clearedCrewPool
+                      .filter((w) => w.id !== currentUser?.workerProfile?.id)
+                      .map((w) => {
+                        const checked = selectedCrewIds.includes(w.id);
+                        return (
+                          <button
+                            key={w.id}
+                            type="button"
+                            onClick={() =>
+                              setSelectedCrewIds(
+                                checked
+                                  ? selectedCrewIds.filter((x) => x !== w.id)
+                                  : [...selectedCrewIds, w.id]
+                              )
+                            }
+                            className={`brutal-btn px-2.5 py-1 text-xs font-mono font-bold ${
                               checked
-                                ? selectedCrewIds.filter((x) => x !== w.id)
-                                : [...selectedCrewIds, w.id]
-                            )
-                          }
-                          className={`px-2.5 py-1 rounded-lg text-xs border font-medium ${
-                            checked
-                              ? "bg-emerald-700 text-white border-emerald-700"
-                              : "bg-white text-slate-700 border-slate-300"
-                          }`}
-                        >
-                          {checked ? "✓ " : "+ "}
-                          {w.user?.name} ({w.sapsCertificateRef})
-                        </button>
-                      );
-                    })}
+                                ? "bg-brick-600 text-white"
+                                : "bg-white text-iron-950"
+                            }`}
+                          >
+                            {checked ? "✓ " : "+ "}
+                            {w.user?.name}
+                          </button>
+                        );
+                      })}
+                  </div>
                 </div>
-              </div>
 
-              <div className="flex flex-wrap items-center justify-between gap-3 pt-1 text-xs">
-                <span className="text-slate-600">
-                  Your Guaranteed Net Payout on Approval:{" "}
-                  <strong className="text-emerald-700 text-sm">
-                    {formatZar(quoteSplitPreview.workerNetPayoutZar)}
-                  </strong>{" "}
-                  (100% of materials + 92% of labour)
-                </span>
-                <button
-                  type="submit"
-                  className="px-5 py-2.5 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white font-bold"
-                >
-                  Submit Vetted Quote
-                </button>
-              </div>
-            </form>
-          )}
-        </div>
+                <div className="flex flex-wrap items-center justify-between gap-3 pt-1 text-xs font-mono">
+                  <span>
+                    Net Payout:{" "}
+                    <strong className="text-brick-600 text-sm font-black">
+                      {formatZar(quoteSplitPreview.workerNetPayoutZar)}
+                    </strong>
+                  </span>
+                  <button
+                    type="submit"
+                    className="brutal-btn brutal-btn-primary px-5 py-2 text-xs"
+                  >
+                    SUBMIT QUOTE
+                  </button>
+                </div>
+              </form>
+            )}
+          </div>
+        )}
 
-        {/* RIGHT COLUMN (5 cols): Masked Chat + Two-Way Ratings */}
-        <div className="lg:col-span-5 space-y-6">
-          {/* MASKED IN-APP CHAT WITH ANTI-LEAKAGE PROTECTION */}
-          <div className="bg-white rounded-2xl p-5 border border-slate-200 shadow-sm flex flex-col h-[460px]">
-            <div className="border-b border-slate-100 pb-3 mb-3 flex items-center justify-between">
-              <div>
-                <h2 className="font-bold text-slate-900 text-base flex items-center gap-1.5">
-                  <Lock className="w-4 h-4 text-emerald-600" />
-                  Masked Safety Chat
-                </h2>
-                <p className="text-[11px] text-slate-500">
+        {/* TAB 4: MASKED CHAT */}
+        {activeTab === "chat" && (
+          <div className="border-2 border-iron-950 bg-white rounded-none p-5 shadow-brutal flex flex-col h-[480px]">
+            <div className="border-b-2 border-mortar-300 pb-2.5 mb-3 flex flex-wrap items-center justify-between gap-2">
+              <div className="flex items-center gap-2">
+                <Lock className="w-4 h-4 text-brick-600" />
+                <span className="font-mono text-xs font-bold uppercase text-iron-800">
                   {job.hasFundedEscrow
-                    ? "Escrow active — cash-bypass solicitation still monitored."
-                    : "Pre-Escrow Mode: Phone numbers, links & cash offers auto-hidden."}
-                </p>
+                    ? "Escrow Active — Cash Bypass Monitored"
+                    : "Pre-Escrow: Phone Numbers & Cash Offers Auto-Redacted"}
+                </span>
               </div>
+
               {!job.hasFundedEscrow && (
                 <button
                   type="button"
@@ -1162,40 +1299,44 @@ export default function JobWorkspacePage() {
                       "Hey WhatsApp me on 082 991 3344 and pay cash at the gate to skip the fee!"
                     )
                   }
-                  className="text-[11px] px-2.5 py-1 rounded-lg bg-amber-100 hover:bg-amber-200 text-amber-900 font-semibold shrink-0"
+                  className="brutal-btn bg-safety-100 hover:bg-safety-200 text-safety-950 border-2 border-iron-950 px-2.5 py-1 text-xs font-mono font-bold shrink-0"
                 >
-                  Test Leakage Filter
+                  TEST LEAK FILTER
                 </button>
               )}
             </div>
 
-            <div className="flex-1 overflow-y-auto space-y-3 pr-1">
-              {job.messages.map((m) => {
-                const mine = m.senderId === currentUser?.id;
-                return (
-                  <div
-                    key={m.id}
-                    className={`p-3 rounded-xl text-xs space-y-1 ${
-                      mine
-                        ? "bg-emerald-50 border border-emerald-200 ml-6"
-                        : "bg-slate-50 border border-slate-200 mr-6"
-                    }`}
-                  >
-                    <div className="flex items-center justify-between font-bold text-slate-800">
-                      <span>{m.sender.name}</span>
-                      {m.wasRedacted && (
-                        <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-200 text-amber-950">
-                          Auto-Redacted
-                        </span>
-                      )}
+            <div className="flex-1 overflow-y-auto space-y-2.5 p-3.5 border-2 border-iron-950 bg-mortar-50 rounded-none">
+              {job.messages.length === 0 ? (
+                <div className="text-center font-mono text-xs text-iron-500 py-10">
+                  No messages yet.
+                </div>
+              ) : (
+                job.messages.map((m) => {
+                  const mine = m.senderId === currentUser?.id;
+                  return (
+                    <div
+                      key={m.id}
+                      className={`p-3 border-2 border-iron-950 rounded-none text-xs space-y-1 shadow-brutal-sm ${
+                        mine ? "bg-white ml-8 sm:ml-16" : "bg-mortar-200 mr-8 sm:mr-16"
+                      }`}
+                    >
+                      <div className="flex items-center justify-between font-mono font-bold text-iron-950">
+                        <span>{m.sender.name}</span>
+                        {m.wasRedacted && (
+                          <span className="font-mono text-[10px] font-bold px-1.5 py-0.5 bg-safety-500 text-iron-950 border border-iron-950 rounded-none">
+                            REDACTED
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-iron-800 leading-relaxed font-sans">{m.body}</p>
                     </div>
-                    <p className="text-slate-700 leading-relaxed">{m.body}</p>
-                  </div>
-                );
-              })}
+                  );
+                })
+              )}
             </div>
 
-            <div className="pt-3 border-t border-slate-100 mt-3 flex gap-2">
+            <div className="pt-3 flex gap-2">
               <input
                 type="text"
                 value={chatInput}
@@ -1206,76 +1347,78 @@ export default function JobWorkspacePage() {
                     handleSendChat();
                   }
                 }}
-                placeholder="Ask about scope, tiles, or arrival time..."
-                className="flex-1 rounded-xl border border-slate-300 px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                placeholder="Message..."
+                className="flex-1 border-2 border-iron-950 px-3.5 py-2 text-xs font-sans rounded-none shadow-brutal-sm focus:outline-none bg-white text-iron-950"
               />
               <button
                 type="button"
                 onClick={() => handleSendChat()}
-                className="px-3.5 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-white"
+                className="brutal-btn brutal-btn-dark px-5 py-2 flex items-center gap-1.5 text-xs"
                 aria-label="Send chat message"
               >
-                <Send className="w-4 h-4" />
+                <Send className="w-3.5 h-3.5" />
+                <span>SEND</span>
               </button>
             </div>
           </div>
+        )}
 
-          {/* VERIFIED TWO-WAY RATINGS PANEL */}
-          <div className="bg-white rounded-2xl p-5 border border-slate-200 shadow-sm space-y-4">
-            <div>
-              <h2 className="font-bold text-slate-900 text-base flex items-center gap-1.5">
-                <Star className="w-4 h-4 fill-amber-400 text-amber-400" />
-                Verified Two-Way Trust Ratings ({job.reviews.length})
-              </h2>
-              <p className="text-[11px] text-slate-500">
-                Both Homeowners and Artisans rate each other—only unlocked on
-                Escrow-backed jobs.
-              </p>
-            </div>
+        {/* TAB 5: RATINGS & TRUST */}
+        {activeTab === "ratings" && (
+          <div className="border-2 border-iron-950 bg-white rounded-none p-5 shadow-brutal space-y-4">
+            <h2 className="text-lg font-black text-iron-950 uppercase flex items-center gap-2 border-b-2 border-mortar-300 pb-2.5">
+              <Star className="w-5 h-5 fill-safety-500 text-safety-500" />
+              Verified Reviews ({job.reviews.length})
+            </h2>
 
-            {job.reviews.map((rev) => (
-              <div
-                key={rev.id}
-                className="p-3.5 rounded-xl bg-slate-50 border border-slate-200 text-xs space-y-1.5"
-              >
-                <div className="flex items-center justify-between">
-                  <span className="font-bold text-slate-900">
-                    {rev.reviewer.name} → {rev.reviewee.name}
-                  </span>
-                  <span className="font-bold text-amber-600">
-                    {"★".repeat(rev.overallRating)} ({rev.overallRating}/5)
-                  </span>
-                </div>
-                <div className="text-[10px] uppercase tracking-wider font-semibold text-emerald-700">
-                  {rev.direction === "HOMEOWNER_TO_WORKER"
-                    ? "Homeowner Rating Artisan"
-                    : "Artisan Rating Homeowner Buyer"}
-                </div>
-                <p className="text-slate-700">{rev.comment}</p>
+            {job.reviews.length === 0 ? (
+              <div className="border-2 border-dashed border-iron-950 p-6 text-center bg-mortar-50 font-mono text-xs text-iron-600">
+                No reviews yet. Unlocks once work begins.
               </div>
-            ))}
+            ) : (
+              <div className="space-y-3">
+                {job.reviews.map((rev) => (
+                  <div
+                    key={rev.id}
+                    className="border-2 border-iron-950 rounded-none p-3.5 space-y-2 bg-mortar-50 shadow-brutal-sm"
+                  >
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <span className="font-black text-iron-950 text-xs uppercase">
+                        {rev.reviewer.name} → {rev.reviewee.name}
+                      </span>
+                      <span className="font-mono text-xs font-bold text-safety-600">
+                        {"★".repeat(rev.overallRating)} ({rev.overallRating}/5)
+                      </span>
+                    </div>
+                    <div className="grid grid-cols-3 gap-2 font-mono text-[11px] bg-white p-2 border border-iron-950 rounded-none">
+                      <div>Quality: {rev.qualityOrClarityScore}/5</div>
+                      <div>Punctuality: {rev.punctualityOrPaymentScore}/5</div>
+                      <div>Safety: {rev.safetyRespectScore}/5</div>
+                    </div>
+                    <p className="text-xs text-iron-800 font-sans">{rev.comment}</p>
+                  </div>
+                ))}
+              </div>
+            )}
 
             {canLeaveReview && (
               <form
                 onSubmit={handleSubmitReview}
-                className="pt-3 border-t border-slate-100 space-y-3 text-xs"
+                className="pt-3 border-t-2 border-mortar-300 space-y-3"
               >
-                <div className="font-bold text-slate-900">
-                  Leave Your Verified{" "}
-                  {currentUser?.id === job.homeownerId
-                    ? "Artisan Rating"
-                    : "Homeowner Client Rating"}
+                <div className="font-black text-xs text-iron-950 uppercase font-mono">
+                  Rate {currentUser?.id === job.homeownerId ? "Artisan" : "Homeowner"}
                 </div>
 
-                <div className="grid grid-cols-3 gap-2">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                   <div>
-                    <label className="block text-slate-500 mb-1">
+                    <label className="block font-mono text-xs font-bold text-iron-700 uppercase mb-1">
                       {currentUser?.id === job.homeownerId ? "Workmanship" : "Clear Scope"}
                     </label>
                     <select
                       value={score1}
                       onChange={(e) => setScore1(Number(e.target.value))}
-                      className="w-full border border-slate-300 rounded-lg px-2 py-1.5 bg-white font-bold"
+                      className="w-full border-2 border-iron-950 px-3 py-1.5 bg-white font-mono font-bold text-xs rounded-none"
                     >
                       {[5, 4, 3, 2, 1].map((n) => (
                         <option key={n} value={n}>
@@ -1285,13 +1428,13 @@ export default function JobWorkspacePage() {
                     </select>
                   </div>
                   <div>
-                    <label className="block text-slate-500 mb-1">
+                    <label className="block font-mono text-xs font-bold text-iron-700 uppercase mb-1">
                       {currentUser?.id === job.homeownerId ? "Punctuality" : "Fast Release"}
                     </label>
                     <select
                       value={score2}
                       onChange={(e) => setScore2(Number(e.target.value))}
-                      className="w-full border border-slate-300 rounded-lg px-2 py-1.5 bg-white font-bold"
+                      className="w-full border-2 border-iron-950 px-3 py-1.5 bg-white font-mono font-bold text-xs rounded-none"
                     >
                       {[5, 4, 3, 2, 1].map((n) => (
                         <option key={n} value={n}>
@@ -1301,13 +1444,13 @@ export default function JobWorkspacePage() {
                     </select>
                   </div>
                   <div>
-                    <label className="block text-slate-500 mb-1">
+                    <label className="block font-mono text-xs font-bold text-iron-700 uppercase mb-1">
                       Safety &amp; Respect
                     </label>
                     <select
                       value={score3}
                       onChange={(e) => setScore3(Number(e.target.value))}
-                      className="w-full border border-slate-300 rounded-lg px-2 py-1.5 bg-white font-bold"
+                      className="w-full border-2 border-iron-950 px-3 py-1.5 bg-white font-mono font-bold text-xs rounded-none"
                     >
                       {[5, 4, 3, 2, 1].map((n) => (
                         <option key={n} value={n}>
@@ -1323,24 +1466,20 @@ export default function JobWorkspacePage() {
                   required
                   value={reviewComment}
                   onChange={(e) => setReviewComment(e.target.value)}
-                  placeholder={
-                    currentUser?.id === job.homeownerId
-                      ? "How was their workmanship, neatness, and Gate badge check-in?"
-                      : "Was the homeowner respectful, clear on scope, and prompt to release Escrow?"
-                  }
-                  className="w-full rounded-lg border border-slate-300 px-3 py-2"
+                  placeholder="Review comment..."
+                  className="w-full border-2 border-iron-950 px-3 py-2 text-xs rounded-none bg-white font-sans focus:outline-none"
                 />
 
                 <button
                   type="submit"
-                  className="w-full py-2 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white font-bold"
+                  className="brutal-btn brutal-btn-primary w-full py-2.5 text-xs font-bold"
                 >
-                  Publish Verified Rating
+                  PUBLISH RATING
                 </button>
               </form>
             )}
           </div>
-        </div>
+        )}
       </div>
     </div>
   );

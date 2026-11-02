@@ -3,13 +3,13 @@
 import React, { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import {
-  Landmark,
   ShieldCheck,
   AlertTriangle,
   Settings,
   CheckCircle2,
   Award,
   MessageSquareWarning,
+  Scale,
 } from "lucide-react";
 import { formatZar } from "@/lib/config";
 import { usePersona } from "@/components/PersonaContext";
@@ -80,10 +80,13 @@ interface AdminDataDTO {
   }[];
 }
 
+type AdminPanel = "ledger" | "compliance" | "config";
+
 export default function AdminDashboardPage() {
   const { refreshBootstrap } = usePersona();
   const [data, setData] = useState<AdminDataDTO | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+  const [activePanel, setActivePanel] = useState<AdminPanel>("ledger");
 
   const [buyerPct, setBuyerPct] = useState<string>("5");
   const [workerPct, setWorkerPct] = useState<string>("8");
@@ -130,383 +133,455 @@ export default function AdminDashboardPage() {
 
   if (!data) {
     return (
-      <div className="max-w-6xl mx-auto px-4 py-12 text-center text-sm text-slate-500">
-        Loading Platform Founder Revenue &amp; Governance Console...
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 py-12 text-center font-mono text-xs">
+        Loading Admin Console...
       </div>
     );
   }
 
   return (
-    <div className="max-w-7xl mx-auto px-4 py-8 space-y-8">
-      <div className="flex flex-wrap items-center justify-between gap-4">
-        <div>
-          <span className="inline-flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider px-2.5 py-1 rounded-full bg-slate-900 text-emerald-400">
-            <Landmark className="w-3.5 h-3.5" />
-            Platform Founder Command Center
-          </span>
-          <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 mt-2">
-            Your Revenue Cut, Escrow Ledger &amp; SAPS Governance
-          </h1>
-        </div>
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 py-6 space-y-5">
+      <div className="border-b-2 border-iron-950 pb-3">
+        <h1 className="text-2xl sm:text-3xl font-black text-iron-950 uppercase tracking-tight">
+          Admin &amp; Revenue Console
+        </h1>
       </div>
 
       {notice && (
-        <div className="p-4 rounded-2xl bg-emerald-50 border border-emerald-300 text-emerald-950 text-sm font-medium flex items-center gap-2">
-          <CheckCircle2 className="w-5 h-5 text-emerald-600" />
-          {notice}
+        <div
+          role="alert"
+          className="p-3.5 border-2 border-iron-950 bg-emerald-50 text-emerald-950 rounded-none shadow-brutal text-xs font-mono flex items-center justify-between gap-3 transition-all duration-150"
+        >
+          <div className="flex items-center gap-2">
+            <CheckCircle2 className="w-4 h-4 text-emerald-700 shrink-0" />
+            <span>{notice}</span>
+          </div>
+          <button
+            type="button"
+            onClick={() => setNotice(null)}
+            className="font-bold uppercase underline"
+          >
+            Dismiss
+          </button>
         </div>
       )}
 
-      {/* KPI Cards */}
+      {/* 4 KPI Summary Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className="bg-emerald-950 text-white rounded-2xl p-5 shadow-sm">
-          <div className="text-xs uppercase text-emerald-300 font-bold">
-            Your Earned Platform Cut (Released)
+        <div className="border-2 border-iron-950 bg-iron-950 text-white rounded-none p-4 shadow-brutal flex flex-col justify-between">
+          <div>
+            <div className="font-mono text-xs uppercase text-safety-400 font-bold">
+              PLATFORM CUT
+            </div>
+            <div className="text-2xl font-black text-white mt-1 font-mono tabular-nums">
+              {formatZar(data.kpis.releasedPlatformRevenueZar)}
+            </div>
           </div>
-          <div className="text-3xl font-extrabold mt-1">
-            {formatZar(data.kpis.releasedPlatformRevenueZar)}
-          </div>
-          <div className="text-xs text-emerald-200/80 mt-1">
-            + {formatZar(data.kpis.pendingPlatformRevenueZar)} pending in active Escrow
-          </div>
-        </div>
-
-        <div className="bg-white rounded-2xl p-5 border border-slate-200 shadow-sm">
-          <div className="text-xs uppercase text-slate-500 font-bold">
-            Gross Escrow Volume (GMV)
-          </div>
-          <div className="text-2xl font-extrabold text-slate-900 mt-1">
-            {formatZar(data.kpis.totalGmvZar)}
-          </div>
-          <div className="text-xs text-slate-500 mt-1">
-            Currently Held in Trust: {formatZar(data.kpis.heldInEscrowZar)}
+          <div className="text-xs font-mono text-mortar-400 mt-2 pt-2 border-t border-iron-800">
+            + <span className="text-white font-bold tabular-nums">{formatZar(data.kpis.pendingPlatformRevenueZar)}</span> pending
           </div>
         </div>
 
-        <div className="bg-white rounded-2xl p-5 border border-slate-200 shadow-sm">
-          <div className="text-xs uppercase text-slate-500 font-bold">
-            SAPS Criminal-Cleared Pros
+        <div className="border-2 border-iron-950 bg-white text-iron-950 rounded-none p-4 shadow-brutal flex flex-col justify-between">
+          <div>
+            <div className="font-mono text-xs uppercase text-iron-600 font-bold">
+              ESCROW GMV
+            </div>
+            <div className="text-2xl font-black text-iron-950 mt-1 font-mono tabular-nums">
+              {formatZar(data.kpis.totalGmvZar)}
+            </div>
           </div>
-          <div className="text-2xl font-extrabold text-emerald-700 mt-1">
-            {data.kpis.clearedWorkersCount} Cleared
-          </div>
-          <div className="text-xs text-red-600 font-medium mt-1">
-            {data.kpis.blockedWorkersCount} Flagged / Safety-Blocked
+          <div className="text-xs font-mono text-iron-600 mt-2 pt-2 border-t border-iron-200">
+            Held: <strong className="text-iron-950 tabular-nums">{formatZar(data.kpis.heldInEscrowZar)}</strong>
           </div>
         </div>
 
-        <div className="bg-white rounded-2xl p-5 border border-slate-200 shadow-sm">
-          <div className="text-xs uppercase text-slate-500 font-bold">
-            Anti-Leakage &amp; CoC Queue
+        <div className="border-2 border-iron-950 bg-white text-iron-950 rounded-none p-4 shadow-brutal flex flex-col justify-between">
+          <div>
+            <div className="font-mono text-xs uppercase text-iron-600 font-bold">
+              SAPS VETTED
+            </div>
+            <div className="text-2xl font-black text-emerald-700 mt-1 font-mono tabular-nums">
+              {data.kpis.clearedWorkersCount} Cleared
+            </div>
           </div>
-          <div className="text-2xl font-extrabold text-amber-700 mt-1">
-            {data.pendingCerts.length} Pending CoC
+          <div className="text-xs font-mono text-rose-700 font-bold mt-2 pt-2 border-t border-iron-200">
+            <span className="tabular-nums">{data.kpis.blockedWorkersCount}</span> Blocked
           </div>
-          <div className="text-xs text-slate-500 mt-1">
-            {data.redactedMessages.length} off-platform bypasses intercepted
+        </div>
+
+        <div className="border-2 border-iron-950 bg-white text-iron-950 rounded-none p-4 shadow-brutal flex flex-col justify-between">
+          <div>
+            <div className="font-mono text-xs uppercase text-iron-600 font-bold">
+              COMPLIANCE
+            </div>
+            <div className="text-2xl font-black text-brick-600 mt-1 font-mono tabular-nums">
+              {data.pendingCerts.length} Pending CoC
+            </div>
+          </div>
+          <div className="text-xs font-mono text-iron-600 mt-2 pt-2 border-t border-iron-200">
+            <span className="text-iron-950 font-bold tabular-nums">{data.redactedMessages.length}</span> leaks blocked
           </div>
         </div>
       </div>
 
-      {/* Live Pricing & Commission Configurator */}
-      <div className="bg-white rounded-2xl p-6 border border-slate-200 shadow-sm space-y-4">
-        <div className="flex items-center gap-2">
-          <Settings className="w-5 h-5 text-slate-700" />
-          <h2 className="font-bold text-lg text-slate-900">
-            Live Platform Take-Rate &amp; Brand Configurator
-          </h2>
+      {/* 3 Tabbed Panels */}
+      <div className="space-y-4">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 border-b-2 border-iron-950 pb-2">
+          <button
+            type="button"
+            onClick={() => setActivePanel("ledger")}
+            className={`py-2.5 px-4 font-mono text-xs font-bold uppercase tracking-wider transition-all duration-150 flex items-center justify-center gap-2 border-2 border-iron-950 ${
+              activePanel === "ledger"
+                ? "bg-iron-950 text-white shadow-brutal-sm font-black"
+                : "bg-white text-iron-950 hover:bg-mortar-200"
+            }`}
+          >
+            <Scale className="w-4 h-4 text-brick-400" />
+            <span>01 // Ledger</span>
+            <span className="px-1.5 py-0.2 border border-iron-950 bg-mortar-200 text-iron-950 text-[10px] tabular-nums">
+              {data.transactions.length}
+            </span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setActivePanel("compliance")}
+            className={`py-2.5 px-4 font-mono text-xs font-bold uppercase tracking-wider transition-all duration-150 flex items-center justify-center gap-2 border-2 border-iron-950 ${
+              activePanel === "compliance"
+                ? "bg-iron-950 text-white shadow-brutal-sm font-black"
+                : "bg-white text-iron-950 hover:bg-mortar-200"
+            }`}
+          >
+            <Award className="w-4 h-4 text-brick-400" />
+            <span>02 // Compliance</span>
+            <span className="px-1.5 py-0.2 border border-iron-950 bg-mortar-200 text-iron-950 text-[10px] tabular-nums">
+              {data.pendingCerts.length + data.safetyIncidents.length + data.redactedMessages.length}
+            </span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setActivePanel("config")}
+            className={`py-2.5 px-4 font-mono text-xs font-bold uppercase tracking-wider transition-all duration-150 flex items-center justify-center gap-2 border-2 border-iron-950 ${
+              activePanel === "config"
+                ? "bg-iron-950 text-white shadow-brutal-sm font-black"
+                : "bg-white text-iron-950 hover:bg-mortar-200"
+            }`}
+          >
+            <Settings className="w-4 h-4 text-brick-400" />
+            <span>03 // Fee Config</span>
+          </button>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-4 gap-4 text-xs">
-          <div>
-            <label className="block font-semibold text-slate-700 mb-1">
-              Brand Name
-            </label>
-            <input
-              type="text"
-              value={brandName}
-              onChange={(e) => setBrandName(e.target.value)}
-              className="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm font-semibold"
-            />
-          </div>
-          <div>
-            <label className="block font-semibold text-slate-700 mb-1">
-              Buyer Trust Fee (% on Labour)
-            </label>
-            <input
-              type="number"
-              min={0}
-              max={25}
-              value={buyerPct}
-              onChange={(e) => setBuyerPct(e.target.value)}
-              className="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm font-semibold"
-            />
-          </div>
-          <div>
-            <label className="block font-semibold text-slate-700 mb-1">
-              Worker Commission (% on Labour)
-            </label>
-            <input
-              type="number"
-              min={0}
-              max={25}
-              value={workerPct}
-              onChange={(e) => setWorkerPct(e.target.value)}
-              className="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm font-semibold"
-            />
-          </div>
-          <div>
-            <label className="block font-semibold text-slate-700 mb-1">
-              Repeat-Booking Loyalty (% Worker)
-            </label>
-            <input
-              type="number"
-              min={0}
-              max={20}
-              value={repeatPct}
-              onChange={(e) => setRepeatPct(e.target.value)}
-              className="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm font-semibold"
-            />
-          </div>
-        </div>
+        {/* TAB 1: LEDGER */}
+        {activePanel === "ledger" && (
+          <div className="border-2 border-iron-950 bg-white rounded-none shadow-brutal p-4 overflow-x-auto transition-all duration-150">
+            <table className="w-full text-left text-xs border-collapse font-mono">
+              <thead>
+                <tr className="border-b-2 border-iron-950 text-iron-700 bg-mortar-100">
+                  <th className="py-2 px-3 uppercase font-bold">Ref</th>
+                  <th className="py-2 px-3 uppercase font-bold">Job &amp; Milestone</th>
+                  <th className="py-2 px-3 uppercase font-bold">Buyer Paid</th>
+                  <th className="py-2 px-3 uppercase font-bold">Materials (0%)</th>
+                  <th className="py-2 px-3 uppercase font-bold">Artisan Net</th>
+                  <th className="py-2 px-3 uppercase font-bold text-brick-600">Platform Cut</th>
+                  <th className="py-2 px-3 uppercase font-bold">Status</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-iron-200">
+                {data.transactions.map((tx) => (
+                  <tr key={tx.id} className="hover:bg-mortar-50 transition-colors">
+                    <td className="py-2.5 px-3 font-bold text-iron-950 tabular-nums">
+                      {tx.providerRef}
+                    </td>
+                    <td className="py-2.5 px-3 font-sans">
+                      <Link
+                        href={`/jobs/${tx.milestone.job.id}`}
+                        className="font-bold text-iron-950 hover:text-brick-600"
+                      >
+                        {tx.milestone.job.title}
+                      </Link>
+                      <div className="text-[11px] text-iron-600 font-mono">
+                        {tx.milestone.title}
+                      </div>
+                    </td>
+                    <td className="py-2.5 px-3 font-bold tabular-nums">
+                      {formatZar(tx.grossBuyerPaidZar)}
+                    </td>
+                    <td className="py-2.5 px-3 tabular-nums text-iron-700">
+                      {formatZar(tx.materialsZar)}
+                    </td>
+                    <td className="py-2.5 px-3 font-bold text-iron-900 tabular-nums">
+                      {formatZar(tx.workerNetPayoutZar)}
+                    </td>
+                    <td className="py-2.5 px-3 font-black text-brick-600 tabular-nums">
+                      {formatZar(tx.platformTotalCutZar)}
+                    </td>
+                    <td className="py-2.5 px-3">
+                      <div className="flex flex-wrap items-center gap-1.5">
+                        <span
+                          className={`px-2 py-0.5 border border-iron-950 font-bold text-[10px] uppercase ${
+                            tx.status === "RELEASED"
+                              ? "bg-emerald-100 text-emerald-950"
+                              : tx.status === "DISPUTED"
+                              ? "bg-rose-200 text-rose-950"
+                              : "bg-amber-100 text-amber-950"
+                          }`}
+                        >
+                          {tx.status}
+                        </span>
 
-        <button
-          type="button"
-          onClick={() =>
-            callAdminApi(
-              {
-                action: "UPDATE_FEE_CONFIG",
-                platformName: brandName,
-                buyerTrustFeePct: Number(buyerPct) / 100,
-                workerLabourCommissionPct: Number(workerPct) / 100,
-                repeatClientCommissionPct: Number(repeatPct) / 100,
-              },
-              "Updated platform fee model & branding across all calculators and new quotes!"
-            )
-          }
-          className="px-5 py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs"
-        >
-          Save Fee &amp; Brand Configuration
-        </button>
-      </div>
+                        {tx.status === "DISPUTED" && (
+                          <div className="flex gap-1">
+                            <button
+                              type="button"
+                              onClick={() =>
+                                callAdminApi(
+                                  {
+                                    action: "RESOLVE_DISPUTE",
+                                    transactionId: tx.id,
+                                    outcome: "RELEASE_TO_WORKER",
+                                  },
+                                  "Released funds to Artisan."
+                                )
+                              }
+                              className="brutal-btn bg-emerald-700 hover:bg-emerald-800 text-white px-2 py-1 text-[10px]"
+                            >
+                              Pay Pro
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() =>
+                                callAdminApi(
+                                  {
+                                    action: "RESOLVE_DISPUTE",
+                                    transactionId: tx.id,
+                                    outcome: "REFUND_TO_HOMEOWNER",
+                                  },
+                                  "Refunded Homeowner."
+                                )
+                              }
+                              className="brutal-btn bg-iron-950 hover:bg-iron-900 text-white px-2 py-1 text-[10px]"
+                            >
+                              Refund Buyer
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
 
-      {/* Escrow Transaction & Revenue Split Ledger */}
-      <div className="bg-white rounded-2xl p-6 border border-slate-200 shadow-sm space-y-4 overflow-x-auto">
-        <h2 className="font-bold text-lg text-slate-900">
-          Milestone Escrow &amp; Platform Cut Ledger
-        </h2>
-        <table className="w-full text-left text-xs border-collapse">
-          <thead>
-            <tr className="border-b border-slate-200 text-slate-500">
-              <th className="py-2.5 pr-3">TradeSafe Ref</th>
-              <th className="py-2.5 pr-3">Job &amp; Milestone</th>
-              <th className="py-2.5 pr-3">Buyer Paid</th>
-              <th className="py-2.5 pr-3">Materials (0% Fee)</th>
-              <th className="py-2.5 pr-3">Artisan Net</th>
-              <th className="py-2.5 pr-3 text-emerald-700">Your Cut</th>
-              <th className="py-2.5 pr-3">Status / Mediation</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-slate-100">
-            {data.transactions.map((tx) => (
-              <tr key={tx.id}>
-                <td className="py-3 pr-3 font-mono font-semibold text-slate-700">
-                  {tx.providerRef}
-                </td>
-                <td className="py-3 pr-3">
-                  <Link
-                    href={`/jobs/${tx.milestone.job.id}`}
-                    className="font-bold text-slate-900 hover:text-emerald-700"
-                  >
-                    {tx.milestone.job.title}
-                  </Link>
-                  <div className="text-slate-500">{tx.milestone.title}</div>
-                </td>
-                <td className="py-3 pr-3 font-bold">
-                  {formatZar(tx.grossBuyerPaidZar)}
-                </td>
-                <td className="py-3 pr-3">{formatZar(tx.materialsZar)}</td>
-                <td className="py-3 pr-3 font-semibold text-slate-800">
-                  {formatZar(tx.workerNetPayoutZar)}
-                </td>
-                <td className="py-3 pr-3 font-extrabold text-emerald-700">
-                  {formatZar(tx.platformTotalCutZar)}
-                </td>
-                <td className="py-3 pr-3">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <span
-                      className={`px-2 py-0.5 rounded font-bold text-[10px] ${
-                        tx.status === "RELEASED"
-                          ? "bg-emerald-100 text-emerald-900"
-                          : tx.status === "DISPUTED"
-                          ? "bg-red-100 text-red-900"
-                          : "bg-amber-100 text-amber-900"
-                      }`}
+        {/* TAB 2: COMPLIANCE */}
+        {activePanel === "compliance" && (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-5 transition-all duration-150">
+            <div className="border-2 border-iron-950 bg-white rounded-none shadow-brutal p-5 space-y-3">
+              <div className="flex items-center gap-2 border-b-2 border-iron-950 pb-2.5">
+                <Award className="w-4 h-4 text-brick-600" />
+                <h2 className="font-black text-sm text-iron-950 uppercase">
+                  CoC Approvals ({data.pendingCerts.length})
+                </h2>
+              </div>
+
+              {data.pendingCerts.length === 0 ? (
+                <div className="p-4 border border-iron-300 bg-mortar-50 text-center text-xs font-mono text-iron-600">
+                  All CoC licenses verified.
+                </div>
+              ) : (
+                <div className="space-y-2.5 font-mono text-xs">
+                  {data.pendingCerts.map((c) => (
+                    <div
+                      key={c.id}
+                      className="p-3 border-2 border-iron-950 bg-mortar-50 flex flex-wrap items-center justify-between gap-2"
                     >
-                      {tx.status}
-                    </span>
+                      <div>
+                        <div className="font-bold text-iron-950">
+                          {c.workerProfile.user.name} — <span className="text-brick-600">{c.body}</span> ({c.registrationNumber})
+                        </div>
+                        <div className="text-iron-600 text-[11px]">
+                          {c.tradeCategory} • SAPS: {c.workerProfile.sapsStatus}
+                        </div>
+                      </div>
 
-                    {tx.status === "DISPUTED" && (
-                      <>
+                      <div className="flex gap-1.5">
                         <button
                           type="button"
                           onClick={() =>
                             callAdminApi(
                               {
-                                action: "RESOLVE_DISPUTE",
-                                transactionId: tx.id,
-                                outcome: "RELEASE_TO_WORKER",
+                                action: "REVIEW_CERTIFICATION",
+                                certificationId: c.id,
+                                decision: "VERIFIED",
                               },
-                              "Dispute resolved: Released funds to Artisan."
+                              `Verified ${c.body} for ${c.workerProfile.user.name}.`
                             )
                           }
-                          className="px-2 py-1 rounded bg-emerald-700 text-white font-bold"
+                          className="brutal-btn bg-emerald-700 hover:bg-emerald-800 text-white px-2.5 py-1 text-[10px]"
                         >
-                          Release to Pro
+                          Approve
                         </button>
                         <button
                           type="button"
                           onClick={() =>
                             callAdminApi(
                               {
-                                action: "RESOLVE_DISPUTE",
-                                transactionId: tx.id,
-                                outcome: "REFUND_TO_HOMEOWNER",
+                                action: "REVIEW_CERTIFICATION",
+                                certificationId: c.id,
+                                decision: "REJECTED",
                               },
-                              "Dispute resolved: Refunded Homeowner."
+                              "Rejected certificate."
                             )
                           }
-                          className="px-2 py-1 rounded bg-slate-800 text-white font-bold"
+                          className="brutal-btn bg-rose-700 hover:bg-rose-800 text-white px-2.5 py-1 text-[10px]"
                         >
-                          Refund Buyer
+                          Reject
                         </button>
-                      </>
-                    )}
-                  </div>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-
-      {/* Bottom Governance Grid: Pending CoC Certs + Anti-Leakage & Gate Safety Alerts */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <div className="bg-white rounded-2xl p-6 border border-slate-200 shadow-sm space-y-4">
-          <div className="flex items-center gap-2">
-            <Award className="w-5 h-5 text-amber-600" />
-            <h2 className="font-bold text-base text-slate-900">
-              Tier 3 Statutory CoC Approval Queue ({data.pendingCerts.length})
-            </h2>
-          </div>
-
-          {data.pendingCerts.length === 0 ? (
-            <p className="text-xs text-slate-500">
-              All submitted PIRB / ECB / NHBRC certificates have been reviewed.
-            </p>
-          ) : (
-            data.pendingCerts.map((c) => (
-              <div
-                key={c.id}
-                className="p-3.5 rounded-xl bg-slate-50 border border-slate-200 flex items-center justify-between gap-3 text-xs"
-              >
-                <div>
-                  <div className="font-bold text-slate-900">
-                    {c.workerProfile.user.name} — {c.body} ({c.registrationNumber})
-                  </div>
-                  <div className="text-slate-500 mt-0.5">
-                    SAPS Status: {c.workerProfile.sapsStatus} (
-                    {c.workerProfile.sapsCertificateRef || "Pending"})
-                  </div>
+                      </div>
+                    </div>
+                  ))}
                 </div>
-                <div className="flex gap-1.5">
-                  <button
-                    type="button"
-                    onClick={() =>
-                      callAdminApi(
-                        {
-                          action: "REVIEW_CERTIFICATION",
-                          certificationId: c.id,
-                          decision: "VERIFIED",
-                        },
-                        `Verified ${c.body} license and upgraded ${c.workerProfile.user.name} to Tier 3!`
-                      )
-                    }
-                    className="px-3 py-1.5 rounded-lg bg-emerald-700 text-white font-bold"
-                  >
-                    Approve CoC
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() =>
-                      callAdminApi(
-                        {
-                          action: "REVIEW_CERTIFICATION",
-                          certificationId: c.id,
-                          decision: "REJECTED",
-                        },
-                        "Rejected unverified trade certificate."
-                      )
-                    }
-                    className="px-2.5 py-1.5 rounded-lg bg-red-100 text-red-800 font-bold"
-                  >
-                    Reject
-                  </button>
-                </div>
-              </div>
-            ))
-          )}
-        </div>
-
-        <div className="bg-white rounded-2xl p-6 border border-slate-200 shadow-sm space-y-4">
-          <div className="flex items-center gap-2">
-            <MessageSquareWarning className="w-5 h-5 text-amber-600" />
-            <h2 className="font-bold text-base text-slate-900">
-              Intercepted Cash-Bypass &amp; Gate Safety Alerts
-            </h2>
-          </div>
-
-          {data.safetyIncidents.map((inc) => (
-            <div
-              key={inc.id}
-              className="p-3 rounded-xl bg-red-50 border border-red-300 text-xs text-red-950 space-y-1"
-            >
-              <div className="font-bold flex items-center gap-1">
-                <AlertTriangle className="w-4 h-4 text-red-600" />
-                Gate Security Incident on {inc.job.title}
-              </div>
-              <p>{inc.incidentReport}</p>
+              )}
             </div>
-          ))}
 
-          {data.redactedMessages.map((msg) => (
-            <div
-              key={msg.id}
-              className="p-3 rounded-xl bg-amber-50/70 border border-amber-200 text-xs space-y-1"
-            >
-              <div className="flex items-center justify-between font-bold text-amber-950">
-                <span>
-                  {msg.sender.name} ({msg.sender.role})
-                </span>
-                <Link
-                  href={`/jobs/${msg.job.id}`}
-                  className="underline text-emerald-800"
+            <div className="border-2 border-iron-950 bg-white rounded-none shadow-brutal p-5 space-y-3">
+              <div className="flex items-center justify-between border-b-2 border-iron-950 pb-2.5">
+                <div className="flex items-center gap-2">
+                  <MessageSquareWarning className="w-4 h-4 text-brick-600" />
+                  <h2 className="font-black text-sm text-iron-950 uppercase">
+                    Safety &amp; Leak Alerts ({data.safetyIncidents.length + data.redactedMessages.length})
+                  </h2>
+                </div>
+              </div>
+
+              {data.safetyIncidents.map((inc) => (
+                <div
+                  key={inc.id}
+                  className="p-3 border-2 border-iron-950 bg-rose-50 text-rose-950 font-mono text-xs space-y-1"
                 >
-                  Inspect Job
-                </Link>
-              </div>
-              <p className="text-slate-700">{msg.body}</p>
-            </div>
-          ))}
+                  <div className="font-bold flex items-center gap-1.5 text-rose-900">
+                    <AlertTriangle className="w-3.5 h-3.5 text-rose-700" />
+                    Gate Alert: {inc.job.title}
+                  </div>
+                  <p>{inc.incidentReport}</p>
+                </div>
+              ))}
 
-          {data.safetyIncidents.length === 0 &&
-            data.redactedMessages.length === 0 && (
-              <p className="text-xs text-slate-500 flex items-center gap-1">
-                <ShieldCheck className="w-4 h-4 text-emerald-600" />
-                Zero unmitigated safety alerts.
-              </p>
-            )}
-        </div>
+              {data.redactedMessages.map((msg) => (
+                <div
+                  key={msg.id}
+                  className="p-3 border-2 border-iron-950 bg-amber-50 text-iron-950 font-mono text-xs space-y-1"
+                >
+                  <div className="flex items-center justify-between font-bold">
+                    <span>
+                      {msg.sender.name} ({msg.sender.role})
+                    </span>
+                    <Link
+                      href={`/jobs/${msg.job.id}`}
+                      className="underline text-brick-600"
+                    >
+                      Job &rarr;
+                    </Link>
+                  </div>
+                  <p className="border-l-2 border-brick-600 pl-2 text-iron-800 font-sans">
+                    {msg.body}
+                  </p>
+                </div>
+              ))}
+
+              {data.safetyIncidents.length === 0 && data.redactedMessages.length === 0 && (
+                <div className="p-4 border border-iron-300 bg-mortar-50 text-center text-xs font-mono text-iron-600">
+                  <ShieldCheck className="w-5 h-5 text-emerald-600 mx-auto mb-1" />
+                  No active alerts.
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* TAB 3: FEE & BRAND CONFIG */}
+        {activePanel === "config" && (
+          <div className="border-2 border-iron-950 bg-white rounded-none shadow-brutal p-5 space-y-4 transition-all duration-150">
+            <div className="grid grid-cols-1 sm:grid-cols-4 gap-4 text-xs font-mono">
+              <div>
+                <label className="block font-bold text-iron-950 uppercase mb-1">
+                  Brand Name
+                </label>
+                <input
+                  type="text"
+                  value={brandName}
+                  onChange={(e) => setBrandName(e.target.value)}
+                  className="w-full border-2 border-iron-950 rounded-none px-3 py-2 text-sm font-bold bg-white focus:outline-none"
+                />
+              </div>
+
+              <div>
+                <label className="block font-bold text-iron-950 uppercase mb-1">
+                  Buyer Fee (% Labour)
+                </label>
+                <input
+                  type="number"
+                  min={0}
+                  max={25}
+                  value={buyerPct}
+                  onChange={(e) => setBuyerPct(e.target.value)}
+                  className="w-full border-2 border-iron-950 rounded-none px-3 py-2 text-sm font-bold tabular-nums bg-white focus:outline-none"
+                />
+              </div>
+
+              <div>
+                <label className="block font-bold text-iron-950 uppercase mb-1">
+                  Worker Cut (% Labour)
+                </label>
+                <input
+                  type="number"
+                  min={0}
+                  max={25}
+                  value={workerPct}
+                  onChange={(e) => setWorkerPct(e.target.value)}
+                  className="w-full border-2 border-iron-950 rounded-none px-3 py-2 text-sm font-bold tabular-nums bg-white focus:outline-none"
+                />
+              </div>
+
+              <div>
+                <label className="block font-bold text-iron-950 uppercase mb-1">
+                  Repeat Cut (% Labour)
+                </label>
+                <input
+                  type="number"
+                  min={0}
+                  max={20}
+                  value={repeatPct}
+                  onChange={(e) => setRepeatPct(e.target.value)}
+                  className="w-full border-2 border-iron-950 rounded-none px-3 py-2 text-sm font-bold tabular-nums bg-white focus:outline-none"
+                />
+              </div>
+            </div>
+
+            <button
+              type="button"
+              onClick={() =>
+                callAdminApi(
+                  {
+                    action: "UPDATE_FEE_CONFIG",
+                    platformName: brandName,
+                    buyerTrustFeePct: Number(buyerPct) / 100,
+                    workerLabourCommissionPct: Number(workerPct) / 100,
+                    repeatClientCommissionPct: Number(repeatPct) / 100,
+                  },
+                  "Configuration saved."
+                )
+              }
+              className="brutal-btn brutal-btn-primary px-5 py-2.5 text-xs"
+            >
+              Save Configuration
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );
