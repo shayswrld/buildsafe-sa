@@ -156,3 +156,15 @@ export function formatZar(amount: number): string {
     maximumFractionDigits: 2,
   })}`;
 }
+
+export const VAULT_LEXICON = {
+  vaultName: "Milestone Vault",
+  jobGuarantee: "Job Guarantee",
+  fundedBadge: "FUNDS SECURED IN VAULT",
+  approveButton: "Approve & Payout Labour",
+  touchUpButton: "Request a Touch-Up",
+  touchUpBanner: "72-Hour Fix Window Active",
+  preBookingProtection: "Pre-Booking Protection",
+  extensionButton: "Request 24h Blackout Extension",
+} as const;
+

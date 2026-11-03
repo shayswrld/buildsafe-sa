@@ -1,39 +1,18 @@
 "use client";
 
-import React, { useState } from "react";
+import React from "react";
 import Link from "next/link";
 import {
   ArrowRight,
   LogIn,
   UserPlus,
-  Wrench,
-  Zap,
-  Paintbrush,
-  Hammer,
-  Layers,
-  Sparkles,
-  Banknote,
-  ChevronDown,
-  ChevronUp,
   ShieldCheck,
   Receipt,
   KeyRound,
 } from "lucide-react";
-import { EscrowCalculator } from "@/components/EscrowCalculator";
 import { ArtisanCanvas } from "@/components/animations/ArtisanCanvas";
 
-const SERVICE_CARDS = [
-  { title: "Plumbing & Geysers", badge: "PIRB QUALIFIED", icon: Wrench, slug: "PLUMBING" },
-  { title: "Electrical & Power", badge: "ECB WIREMAN", icon: Zap, slug: "ELECTRICAL" },
-  { title: "Painting & Waterproofing", badge: "DAMP CERTIFIED", icon: Paintbrush, slug: "PAINTING" },
-  { title: "Brickwork & Concrete", badge: "NHBRC REGISTERED", icon: Hammer, slug: "BUILDING" },
-  { title: "Carpentry & Roofs", badge: "TIMBER TRUSS", icon: Layers, slug: "CARPENTRY" },
-  { title: "Tiling & Flooring", badge: "PRECISION SCREED", icon: Sparkles, slug: "TILING" },
-];
-
 export default function HomePage() {
-  const [isCalculatorOpen, setIsCalculatorOpen] = useState<boolean>(false);
-
   return (
     <div className="relative min-h-[calc(100vh-3.5rem)] flex flex-col justify-between overflow-x-hidden bg-[#F8F6F2]">
       {/* Ambient Animated Artisan Background Canvas */}
@@ -202,93 +181,6 @@ export default function HomePage() {
                 Every lead artisan and assistant verified on the residential gate manifest before arrival.
               </p>
             </div>
-          </div>
-        </div>
-
-        {/* Trade Category Quick-Links */}
-        <div className="mt-12 w-full max-w-5xl space-y-4">
-          <div className="border-b-2 border-iron-950 pb-2 flex items-center justify-between">
-            <span className="font-mono text-xs font-bold uppercase tracking-widest text-brick-600">
-              // 01 · EXPLORE QUALIFIED SOUTH AFRICAN TRADES
-            </span>
-            <Link
-              href="/jobs"
-              className="text-xs font-mono font-bold text-iron-700 hover:text-brick-600 underline"
-            >
-              View All →
-            </Link>
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-            {SERVICE_CARDS.map((card) => {
-              const Icon = card.icon;
-              return (
-                <div
-                  key={card.slug}
-                  className="border-2 border-iron-950 bg-white p-4 shadow-brutal rounded-none flex flex-col justify-between gap-3 hover:translate-x-0.5 hover:translate-y-0.5 transition-transform"
-                >
-                  <div className="flex items-start justify-between">
-                    <div>
-                      <span className="font-mono text-[10px] font-bold text-brick-600 uppercase block">
-                        {card.badge}
-                      </span>
-                      <h3 className="font-black text-base text-iron-950 uppercase mt-0.5">{card.title}</h3>
-                    </div>
-                    <div className="p-2 bg-mortar-200 border border-iron-950 shrink-0">
-                      <Icon className="w-4 h-4 text-iron-950" />
-                    </div>
-                  </div>
-
-                  <div className="flex items-center gap-2 pt-2 border-t border-iron-200">
-                    <Link
-                      href="/signup"
-                      className="brutal-btn-primary px-3 py-1.5 text-xs font-bold inline-flex items-center gap-1 flex-1 justify-center"
-                    >
-                      Hire Artisan <ArrowRight className="w-3 h-3" />
-                    </Link>
-                    <Link
-                      href={`/jobs?trade=${card.slug}`}
-                      className="brutal-btn-outline px-3 py-1.5 text-xs font-bold inline-flex items-center justify-center"
-                    >
-                      Browse
-                    </Link>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-
-        {/* Collapsible Escrow Calculator Drawer */}
-        <div className="mt-12 w-full max-w-5xl">
-          <div className="border-2 border-iron-950 bg-white shadow-brutal rounded-none overflow-hidden">
-            <div className="p-4 sm:p-5 bg-mortar-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-              <div>
-                <span className="font-mono text-xs font-bold uppercase tracking-widest text-brick-600 block">
-                  // 02 · ESCROW FEE &amp; DISPUTE PROTECTIONS
-                </span>
-                <span className="font-mono text-xs font-bold text-iron-800">
-                  5% Buyer Fee • 8% Labour Commission • 0% Materials Markup
-                </span>
-              </div>
-
-              <button
-                type="button"
-                onClick={() => setIsCalculatorOpen((prev) => !prev)}
-                className="brutal-btn-dark px-4 py-2 text-xs font-mono font-bold tracking-wider inline-flex items-center justify-center gap-2 shrink-0"
-                aria-expanded={isCalculatorOpen}
-              >
-                <Banknote className="w-4 h-4 text-safety-400" />
-                <span>{isCalculatorOpen ? "[- HIDE CALCULATOR]" : "[+ OPEN CALCULATOR]"}</span>
-                {isCalculatorOpen ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
-              </button>
-            </div>
-
-            {isCalculatorOpen && (
-              <div className="p-6 bg-white border-t-2 border-iron-950 transition-all duration-150 ease-in-out">
-                <EscrowCalculator />
-              </div>
-            )}
           </div>
         </div>
       </main>

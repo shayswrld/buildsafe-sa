@@ -172,11 +172,24 @@ model Milestone {
   labourAmountZar    Float
   materialsAmountZar Float    @default(0)
   materialReceiptRef String?
-  status             String   @default("AWAITING_FUNDING") // AWAITING_FUNDING | HELD_IN_ESCROW | WORK_SUBMITTED | RELEASED | DISPUTED | REFUNDED
+  status             String   @default("AWAITING_FUNDING") // AWAITING_FUNDING | HELD_IN_ESCROW | WORK_SUBMITTED | INSPECTION_COUNTDOWN_ACTIVE | TOUCH_UP_WINDOW_ACTIVE | RELEASED | DISPUTED | REFUNDED
+
+  // --- Lean Milestone Vault Fields ---
+  proofPhotosJson     String    @default("[]")
+  proofNotes          String?
+  proofSubmittedAt    DateTime?
+  autoReleaseDeadline DateTime?
+  cureDeadline        DateTime?
+  defectDescription   String?
+  extensionGranted    Boolean   @default(false)
+  touchUpCount        Int       @default(0)
+
   createdAt          DateTime @default(now())
 
   job               Job                @relation(fields: [jobId], references: [id], onDelete: Cascade)
   escrowTransaction EscrowTransaction?
+
+  @@index([status, autoReleaseDeadline])
 }
 
 model EscrowTransaction {

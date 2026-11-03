@@ -74,8 +74,22 @@ const STATUS_BADGE_MAP: Record<string, string> = {
   ESCROW_FUNDED: "bg-amber-200 text-amber-950",
   WORKER_ON_SITE: "bg-purple-100 text-purple-950",
   WORK_SUBMITTED: "bg-indigo-100 text-indigo-950",
+  INSPECTION_COUNTDOWN_ACTIVE: "bg-amber-100 text-amber-950",
+  TOUCH_UP_WINDOW_ACTIVE: "bg-rose-100 text-rose-950",
   COMPLETED: "bg-mortar-300 text-iron-950",
   DISPUTED: "bg-rose-200 text-rose-950",
+};
+
+const STATUS_DISPLAY_MAP: Record<string, string> = {
+  OPEN: "OPEN FOR QUOTES",
+  QUOTED: "QUOTES RECEIVED",
+  ESCROW_FUNDED: "FUNDS SECURED IN VAULT",
+  WORKER_ON_SITE: "WORKER ON SITE",
+  WORK_SUBMITTED: "WORK SUBMITTED",
+  INSPECTION_COUNTDOWN_ACTIVE: "INSPECTION ACTIVE (48H)",
+  TOUCH_UP_WINDOW_ACTIVE: "TOUCH-UP ACTIVE (72H)",
+  COMPLETED: "COMPLETED",
+  DISPUTED: "FAIR RESOLUTION SUPPORT",
 };
 
 function statusBadgeClasses(status: string) {
@@ -306,7 +320,7 @@ export default function ClientDashboardPage() {
       {/* Jobs List Content Area */}
       {loading ? (
         <div className="border-2 border-iron-950 bg-white p-12 text-center font-mono text-xs uppercase shadow-brutal rounded-none">
-          Fetching client jobs &amp; active escrows...
+          Fetching client jobs &amp; active milestones...
         </div>
       ) : filteredJobs.length === 0 ? (
         /* Brutalist Empty State Card */
@@ -359,7 +373,7 @@ export default function ClientDashboardPage() {
                         job.status
                       )}`}
                     >
-                      // STATUS: {job.status}
+                      // STATUS: {STATUS_DISPLAY_MAP[job.status] || job.status}
                     </span>
 
                     <span className="border-2 border-iron-950 bg-mortar-100 px-2.5 py-0.5 font-mono text-[11px] font-bold text-iron-950 uppercase rounded-none">

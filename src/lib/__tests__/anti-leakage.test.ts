@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { sanitizeChatMessage } from "@/lib/security/anti-leakage";
 
-describe("Pre-Escrow Masked Chat & Anti-Leakage Filter", () => {
-  it("redacts South African +27 and 082 mobile numbers before Escrow is funded", () => {
+describe("Pre-Booking Masked Chat & Anti-Leakage Filter", () => {
+  it("redacts South African +27 and 082 mobile numbers before Vault is funded", () => {
     const res = sanitizeChatMessage(
       "Hi, call me on 082 456 7890 or +27 73 111 2233 so we can talk",
       false
@@ -11,18 +11,18 @@ describe("Pre-Escrow Masked Chat & Anti-Leakage Filter", () => {
     expect(res.wasRedacted).toBe(true);
     expect(res.sanitizedBody).not.toContain("082 456 7890");
     expect(res.sanitizedBody).not.toContain("73 111 2233");
-    expect(res.sanitizedBody).toContain("[Hidden until Call-Out Escrow is funded]");
+    expect(res.sanitizedBody).toContain("[Hidden until Call-Out deposit is secured in Vault]");
     expect(res.warningBanner).toBeDefined();
   });
 
-  it("catches spelled-out phone digits attempting to evade numeric filters", () => {
+  it("catches spelled-out phone digits attempting to evade numeric filters with options object", () => {
     const res = sanitizeChatMessage(
       "Reach me at zero eight two five five five one two three four",
-      false
+      { isVaultFunded: false }
     );
 
     expect(res.wasRedacted).toBe(true);
-    expect(res.sanitizedBody).toContain("[Hidden until Call-Out Escrow is funded]");
+    expect(res.sanitizedBody).toContain("[Hidden until Call-Out deposit is secured in Vault]");
   });
 
   it("flags cash-at-the-gate / eWallet fee bypass attempts even without digits", () => {

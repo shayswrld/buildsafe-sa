@@ -399,8 +399,8 @@ export function Navbar() {
                 </div>
               )}
             </div>
-          ) : (
-            /* Unauthenticated Quick Navigation CTA */
+          ) : !isAuthOrLandingPage ? (
+            /* Unauthenticated Quick Navigation CTA (Hidden on landing & auth pages to prevent duplicate buttons) */
             <div className="flex items-center gap-2">
               <Link
                 href="/login"
@@ -417,7 +417,7 @@ export function Navbar() {
                 <span>Sign Up</span>
               </Link>
             </div>
-          )}
+          ) : null}
 
           {/* Mobile Navigation Drawer Trigger */}
           <button
@@ -496,22 +496,26 @@ export function Navbar() {
             </div>
           ) : (
             <div className="space-y-2">
-              <Link
-                href="/signup"
-                onClick={() => setMobileMenuOpen(false)}
-                className="flex items-center justify-center gap-2 px-3 py-2.5 border-2 border-iron-950 bg-brick-600 text-white font-mono text-xs font-bold uppercase"
-              >
-                <span>[ Sign Up ]</span>
-              </Link>
+              {!isAuthOrLandingPage && (
+                <>
+                  <Link
+                    href="/signup"
+                    onClick={() => setMobileMenuOpen(false)}
+                    className="flex items-center justify-center gap-2 px-3 py-2.5 border-2 border-iron-950 bg-brick-600 text-white font-mono text-xs font-bold uppercase"
+                  >
+                    <span>[ Sign Up ]</span>
+                  </Link>
 
-              <Link
-                href="/login"
-                onClick={() => setMobileMenuOpen(false)}
-                className="flex items-center justify-center gap-2 px-3 py-2.5 border-2 border-iron-950 bg-white text-iron-950 font-mono text-xs font-bold uppercase"
-              >
-                <LogIn className="w-4 h-4" />
-                <span>[ Log In ]</span>
-              </Link>
+                  <Link
+                    href="/login"
+                    onClick={() => setMobileMenuOpen(false)}
+                    className="flex items-center justify-center gap-2 px-3 py-2.5 border-2 border-iron-950 bg-white text-iron-950 font-mono text-xs font-bold uppercase"
+                  >
+                    <LogIn className="w-4 h-4" />
+                    <span>[ Log In ]</span>
+                  </Link>
+                </>
+              )}
 
               <Link
                 href="/jobs"

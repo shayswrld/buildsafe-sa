@@ -71,7 +71,7 @@ describe("Tier 3: Pairwise Interactions & Cross-Feature Integration", () => {
     const leakMessage = "Call me directly on 083 999 1234 to skip the platform fee";
     const redacted = sanitizeChatMessage(leakMessage, isEscrowFunded);
     expect(redacted.wasRedacted).toBe(true);
-    expect(redacted.sanitizedBody).toContain("[Hidden until Call-Out Escrow is funded]");
+    expect(redacted.sanitizedBody).toContain("[Hidden until Call-Out deposit is secured in Vault]");
 
     // Valid scoping message
     const legitMessage = "I have the standard exterior paint ready, can I start Thursday?";
@@ -194,15 +194,15 @@ describe("Tier 4: Real-World End-to-End User Journeys", () => {
     expect(result.wasRedacted).toBe(true);
     // Phone number is hidden prior to escrow deposit
     expect(result.sanitizedBody).not.toContain("072 333 4455");
-    expect(result.sanitizedBody).toContain("[Hidden until Call-Out Escrow is funded]");
+    expect(result.sanitizedBody).toContain("[Hidden until Call-Out deposit is secured in Vault]");
     // Platform bypass, direct payment, and cash solicitation reasons flagged
     expect(result.reasons).toContain("Off-platform cash solicitation");
     expect(result.reasons).toContain("Direct off-platform payment channel");
     expect(result.reasons).toContain("Platform fee bypass attempt");
-    expect(result.reasons).toContain("Phone or bank account number hidden prior to Escrow deposit");
+    expect(result.reasons).toContain("Phone or bank account number hidden prior to Vault deposit");
     // Safety warning banner presented
     expect(result.warningBanner).toBeDefined();
-    expect(result.warningBanner).toContain("Keep quotes and deposits inside BuildSafe SA Escrow");
+    expect(result.warningBanner).toContain("Keep quotes and payments inside BuildSafe SA Milestone Vault");
   });
 
   it("Scenario 4: Scope Variation Order & Milestone Dispute Resolution Journey", () => {

@@ -70,7 +70,7 @@ export default function RootLayout({
           <main className="flex-1">{children}</main>
 
           {/* Compact Brutalist Footer */}
-          <footer className="bg-iron-950 text-mortar-200 text-xs border-t-4 border-brick-600 mt-16">
+          <footer className="relative z-20 bg-iron-950 text-mortar-200 text-xs border-t-4 border-brick-600 mt-16">
             <div className="max-w-7xl mx-auto px-4 py-4 flex flex-wrap items-center justify-between gap-3">
               <div className="flex flex-wrap items-center gap-2">
                 {TRADES.map((t) => (

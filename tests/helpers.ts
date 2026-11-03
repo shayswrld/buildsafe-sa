@@ -313,7 +313,7 @@ export interface RegisterUserData {
 
 export class MockPersonaSessionManager {
   private storage: Map<string, string> = new Map();
-  private personas: PersonaUserDTO[] = [];
+  public personas: PersonaUserDTO[] = [];
   public currentUser: PersonaUserDTO | null = null;
   public activeRole: PersonaRole = "CLIENT";
   public availableRoles: PersonaRole[] = ["CLIENT"];

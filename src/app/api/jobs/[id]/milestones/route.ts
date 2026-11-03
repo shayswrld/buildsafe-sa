@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { computeEscrowSplit, escrowAdapter } from "@/lib/adapters/escrow";
+import { computeMilestoneSplit, vaultAdapter } from "@/lib/adapters/vault";
 
 export async function POST(
   req: NextRequest,
@@ -68,13 +68,13 @@ export async function POST(
         );
       }
 
-      const split = computeEscrowSplit({
+      const split = computeMilestoneSplit({
         labourZar: ms.labourAmountZar,
         materialsZar: ms.materialsAmountZar,
         isRepeatBooking: job.isRepeatBooking,
         config: config ?? undefined,
       });
-      const deposit = escrowAdapter.createProtectedDeposit(paymentMethod);
+      const deposit = vaultAdapter.createProtectedDeposit(paymentMethod);
 
       await prisma.escrowTransaction.create({
         data: {
@@ -100,17 +100,43 @@ export async function POST(
       return NextResponse.json({ success: true, providerRef: deposit.providerRef });
     }
 
-    if (action === "SUBMIT_WORK") {
-      const { milestoneId, materialReceiptRef } = body;
+    if (action === "SUBMIT_PROOF" || action === "SUBMIT_WORK") {
+      const { milestoneId, photoUrls, notes, materialReceiptRef } = body;
       const ms = await prisma.milestone.findUnique({ where: { id: milestoneId } });
       if (!ms || ms.jobId !== jobId) {
         return NextResponse.json({ error: "Milestone not found." }, { status: 404 });
       }
 
+      const validStatuses = [
+        "HELD_IN_ESCROW",
+        "WORK_IN_PROGRESS",
+        "WORK_SUBMITTED",
+        "INSPECTION_COUNTDOWN_ACTIVE",
+        "TOUCH_UP_WINDOW_ACTIVE",
+      ];
+      if (!validStatuses.includes(ms.status)) {
+        return NextResponse.json(
+          { error: `Cannot submit proof from status ${ms.status}.` },
+          { status: 400 }
+        );
+      }
+
+      const photoList = Array.isArray(photoUrls)
+        ? photoUrls
+        : photoUrls
+        ? [String(photoUrls)]
+        : [];
+      const autoReleaseDeadline = new Date(Date.now() + 48 * 3600 * 1000);
+
       await prisma.milestone.update({
         where: { id: ms.id },
         data: {
-          status: "WORK_SUBMITTED",
+          status: "INSPECTION_COUNTDOWN_ACTIVE",
+          proofPhotosJson: JSON.stringify(photoList),
+          proofNotes: notes ? String(notes).trim() : ms.proofNotes,
+          proofSubmittedAt: new Date(),
+          autoReleaseDeadline,
+          cureDeadline: null,
           materialReceiptRef: materialReceiptRef
             ? String(materialReceiptRef).trim()
             : ms.materialReceiptRef,
@@ -122,10 +148,14 @@ export async function POST(
         data: { status: "WORK_SUBMITTED" },
       });
 
-      return NextResponse.json({ success: true });
+      return NextResponse.json({
+        success: true,
+        status: "INSPECTION_COUNTDOWN_ACTIVE",
+        autoReleaseDeadline,
+      });
     }
 
-    if (action === "RELEASE_ESCROW") {
+    if (action === "APPROVE_PAYOUT" || action === "RELEASE_ESCROW") {
       const { milestoneId } = body;
       const ms = await prisma.milestone.findUnique({
         where: { id: milestoneId },
@@ -141,59 +171,158 @@ export async function POST(
 
       if (ms.escrowTransaction.status === "RELEASED") {
         return NextResponse.json(
-          { error: "Milestone escrow has already been released." },
+          { error: "Milestone vault payout has already been released." },
           { status: 400 }
         );
       }
 
-      await prisma.escrowTransaction.update({
-        where: { id: ms.escrowTransaction.id },
-        data: {
-          status: "RELEASED",
-          releasedAt: new Date(),
-        },
-      });
+      const idempotencyKey = `payout_milestone_${ms.id}`;
+      await vaultAdapter.disbursePayout(ms.id, idempotencyKey);
 
-      await prisma.milestone.update({
-        where: { id: ms.id },
-        data: { status: "RELEASED" },
-      });
-
-      if (job.selectedWorkerProfileId) {
-        await prisma.workerProfile.update({
-          where: { id: job.selectedWorkerProfileId },
+      await prisma.$transaction(async (tx) => {
+        await tx.escrowTransaction.update({
+          where: { id: ms.escrowTransaction!.id },
           data: {
-            walletBalanceZar: {
-              increment: ms.escrowTransaction.workerNetPayoutZar,
-            },
+            status: "RELEASED",
+            releasedAt: new Date(),
           },
         });
-      }
 
-      const remainingUnreleased = await prisma.milestone.count({
-        where: {
-          jobId,
-          status: { not: "RELEASED" },
-        },
-      });
-
-      if (remainingUnreleased === 0) {
-        await prisma.job.update({
-          where: { id: jobId },
-          data: { status: "COMPLETED" },
+        await tx.milestone.update({
+          where: { id: ms.id },
+          data: { status: "RELEASED" },
         });
+
         if (job.selectedWorkerProfileId) {
-          await prisma.workerProfile.update({
+          await tx.workerProfile.update({
             where: { id: job.selectedWorkerProfileId },
-            data: { completedJobsCount: { increment: 1 } },
+            data: {
+              walletBalanceZar: {
+                increment: ms.escrowTransaction!.workerNetPayoutZar,
+              },
+            },
           });
         }
-      }
+
+        const remainingUnreleased = await tx.milestone.count({
+          where: {
+            jobId,
+            status: { not: "RELEASED" },
+          },
+        });
+
+        if (remainingUnreleased === 0) {
+          await tx.job.update({
+            where: { id: jobId },
+            data: { status: "COMPLETED" },
+          });
+          if (job.selectedWorkerProfileId) {
+            await tx.workerProfile.update({
+              where: { id: job.selectedWorkerProfileId },
+              data: { completedJobsCount: { increment: 1 } },
+            });
+          }
+        }
+      });
 
       return NextResponse.json({
         success: true,
+        status: "PAID_OUT",
+        labourGrossZar: ms.labourAmountZar,
+        platformFeeZar: ms.escrowTransaction.platformTotalCutZar,
         workerNetPayoutZar: ms.escrowTransaction.workerNetPayoutZar,
-        platformTotalCutZar: ms.escrowTransaction.platformTotalCutZar,
+        reimbursedMaterialsZar: ms.materialsAmountZar,
+      });
+    }
+
+    if (action === "REQUEST_TOUCH_UP") {
+      const { milestoneId, defectDescription } = body;
+      const ms = await prisma.milestone.findUnique({
+        where: { id: milestoneId },
+        include: { escrowTransaction: true },
+      });
+
+      if (!ms || ms.jobId !== jobId) {
+        return NextResponse.json({ error: "Milestone not found." }, { status: 404 });
+      }
+
+      if (ms.touchUpCount >= 1) {
+        // Enforce maximum 1 touch-up cycle per milestone, escalate to mediation thereafter
+        await prisma.milestone.update({
+          where: { id: ms.id },
+          data: { status: "DISPUTED" },
+        });
+        await prisma.job.update({
+          where: { id: jobId },
+          data: { status: "DISPUTED" },
+        });
+        return NextResponse.json({
+          success: false,
+          status: "ESCALATED_MEDIATION",
+          message: "Touch-up cycle limit reached. Dispute escalated to Fair Resolution Support.",
+        });
+      }
+
+      const cureDeadline = new Date(Date.now() + 72 * 3600 * 1000);
+      await prisma.milestone.update({
+        where: { id: ms.id },
+        data: {
+          status: "TOUCH_UP_WINDOW_ACTIVE",
+          autoReleaseDeadline: null,
+          cureDeadline,
+          defectDescription: String(
+            defectDescription || "Client requested touch-up on completed milestone."
+          ).trim(),
+          touchUpCount: { increment: 1 },
+        },
+      });
+
+      return NextResponse.json({
+        success: true,
+        status: "TOUCH_UP_WINDOW_ACTIVE",
+        cureDeadline,
+      });
+    }
+
+    if (action === "REQUEST_EXTENSION") {
+      const { milestoneId } = body;
+      const ms = await prisma.milestone.findUnique({ where: { id: milestoneId } });
+      if (!ms || ms.jobId !== jobId) {
+        return NextResponse.json({ error: "Milestone not found." }, { status: 404 });
+      }
+
+      if (ms.status !== "INSPECTION_COUNTDOWN_ACTIVE") {
+        return NextResponse.json(
+          { error: "Extension can only be requested while inspection is active." },
+          { status: 400 }
+        );
+      }
+
+      if (ms.extensionGranted) {
+        return NextResponse.json(
+          { error: "A 24-hour blackout extension has already been granted for this milestone." },
+          { status: 400 }
+        );
+      }
+
+      const currentDeadline = ms.autoReleaseDeadline
+        ? new Date(ms.autoReleaseDeadline).getTime()
+        : Date.now();
+      const newDeadline = new Date(currentDeadline + 24 * 3600 * 1000);
+
+      await prisma.milestone.update({
+        where: { id: ms.id },
+        data: {
+          autoReleaseDeadline: newDeadline,
+          extensionGranted: true,
+        },
+      });
+
+      return NextResponse.json({
+        success: true,
+        status: "INSPECTION_COUNTDOWN_ACTIVE",
+        autoReleaseDeadline: newDeadline,
+        extensionGranted: true,
       });
     }
 
@@ -206,7 +335,7 @@ export async function POST(
 
       if (!ms || !ms.escrowTransaction) {
         return NextResponse.json(
-          { error: "Escrow milestone not found." },
+          { error: "Milestone vault transaction not found." },
           { status: 404 }
         );
       }
@@ -216,7 +345,7 @@ export async function POST(
         data: {
           status: "DISPUTED",
           disputeReason: String(
-            disputeReason || "Workmanship or scope concern flagged for Admin mediation."
+            disputeReason || "Workmanship or scope concern flagged for Fair Resolution Support."
           ),
         },
       });

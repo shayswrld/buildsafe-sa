@@ -445,7 +445,7 @@ export default function WorkerDashboardPage() {
                   </strong>
                 </div>
                 <div>
-                  Completed Escrow Jobs:{" "}
+                  Completed Protected Jobs:{" "}
                   <strong className="text-white tabular-nums">
                     {wp.completedJobsCount}
                   </strong>

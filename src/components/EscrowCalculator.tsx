@@ -3,11 +3,11 @@
 import React, { useState } from "react";
 import { Sparkles, TrendingUp } from "lucide-react";
 import { usePersona } from "@/components/PersonaContext";
-import { computeEscrowSplit } from "@/lib/adapters/escrow";
-import { formatZar } from "@/lib/config";
+import { computeMilestoneSplit } from "@/lib/adapters/vault";
+import { formatZar, VAULT_LEXICON } from "@/lib/config";
 
 /**
- * Live Escrow & Take-Rate Calculator.
+ * Live Milestone Vault & Take-Rate Calculator.
  * Shows how a homeowner payment is split between artisan payout and platform fees.
  */
 export function EscrowCalculator() {
@@ -17,7 +17,7 @@ export function EscrowCalculator() {
   const [materialsInput, setMaterialsInput] = useState<number>(800);
   const [isRepeat, setIsRepeat] = useState<boolean>(false);
 
-  const split = computeEscrowSplit({
+  const split = computeMilestoneSplit({
     labourZar: labourInput,
     materialsZar: materialsInput,
     isRepeatBooking: isRepeat,
@@ -107,7 +107,7 @@ export function EscrowCalculator() {
         {/* Reactive Proportional Split Visual Bar */}
         <div className="space-y-1.5 pt-1">
           <div className="flex justify-between text-[11px] font-mono font-bold uppercase text-iron-700">
-            <span>Escrow Breakdown</span>
+            <span>{VAULT_LEXICON.vaultName} Breakdown</span>
             <span className="tabular-nums font-mono">Total {formatZar(totalPaid)}</span>
           </div>
           <div className="h-6 w-full border-2 border-iron-950 bg-white flex overflow-hidden rounded-none shadow-brutal-sm">
@@ -146,7 +146,7 @@ export function EscrowCalculator() {
         <div className="space-y-3 font-mono text-xs">
           <div className="flex justify-between items-center p-3 border-2 border-iron-950 bg-white rounded-none">
             <div className="space-y-0.5">
-              <div className="font-bold text-iron-950 uppercase">1. Buyer Escrow Total</div>
+              <div className="font-bold text-iron-950 uppercase">1. Buyer Vault Total</div>
               <div className="text-[11px] text-iron-600">
                 Labour + Materials + {(split.buyerTrustFeePct * 100).toFixed(0)}% fee
               </div>

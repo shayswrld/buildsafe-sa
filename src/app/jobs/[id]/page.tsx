@@ -472,7 +472,7 @@ export default function JobWorkspacePage() {
     ["WORKER_ON_SITE", "WORK_SUBMITTED", "COMPLETED"].includes(job.status);
 
   const tabs: { id: JobWorkspaceTab; label: string; badge: string | number }[] = [
-    { id: "escrow", label: "01 // ESCROW", badge: job.milestones.length },
+    { id: "escrow", label: "01 // VAULT", badge: job.milestones.length },
     {
       id: "gate",
       label: "02 // GATE OTP",
@@ -569,7 +569,7 @@ export default function JobWorkspacePage() {
       <div className="border-2 border-iron-950 bg-iron-950 text-white rounded-none p-3 shadow-brutal font-mono text-xs font-bold flex flex-wrap items-center justify-between gap-3 tabular-nums">
         <div className="flex items-center gap-1.5 text-emerald-400">
           <Banknote className="w-4 h-4" />
-          <span>ESCROW: {formatZar(escrowHeldZar)}</span>
+          <span>VAULT: {formatZar(escrowHeldZar)}</span>
         </div>
         <div className="flex items-center gap-1.5 text-white">
           <QrCode className="w-4 h-4 text-safety-400" />
@@ -801,26 +801,26 @@ export default function JobWorkspacePage() {
                             }
                             className="brutal-btn brutal-btn-primary px-4 py-2 text-xs"
                           >
-                            FUND {formatZar(preview.grossBuyerPaidZar)} IN ESCROW
+                            SECURE {formatZar(preview.grossBuyerPaidZar)} IN VAULT
                           </button>
                         )}
 
-                        {ms.status === "HELD_IN_ESCROW" && (
+                        {(ms.status === "HELD_IN_ESCROW" || ms.status === "FUNDED_IN_VAULT") && (
                           <>
                             {isWorkerView ? (
                               <button
                                 type="button"
                                 onClick={() =>
                                   handleMilestoneAction({
-                                    action: "SUBMIT_WORK",
+                                    action: "SUBMIT_PROOF",
                                     milestoneId: ms.id,
-                                    materialReceiptRef:
-                                      ms.materialReceiptRef || "BW-SLIP-VERIFIED-884",
+                                    photoUrls: ["site-completion-wide.webp", "site-completion-detail.webp"],
+                                    notes: "Work completed on site, ready for inspection.",
                                   })
                                 }
                                 className="brutal-btn brutal-btn-dark px-4 py-2 text-xs"
                               >
-                                MARK WORK DONE
+                                SUBMIT PHOTO PROOF &amp; START 48H INSPECTION
                               </button>
                             ) : (
                               <>
@@ -828,7 +828,7 @@ export default function JobWorkspacePage() {
                                   type="button"
                                   onClick={() =>
                                     handleMilestoneAction({
-                                      action: "RELEASE_ESCROW",
+                                      action: "APPROVE_PAYOUT",
                                       milestoneId: ms.id,
                                     })
                                   }
@@ -840,19 +840,93 @@ export default function JobWorkspacePage() {
                                   type="button"
                                   onClick={() =>
                                     handleMilestoneAction({
-                                      action: "RAISE_DISPUTE",
+                                      action: "REQUEST_TOUCH_UP",
                                       milestoneId: ms.id,
-                                      disputeReason:
+                                      defectDescription:
                                         "Inspection requested before final release.",
                                     })
                                   }
-                                  className="brutal-btn bg-red-100 text-red-950 border-2 border-iron-950 hover:bg-red-200 px-3 py-2 text-xs"
+                                  className="brutal-btn bg-mortar-200 text-iron-950 border-2 border-iron-950 hover:bg-mortar-300 px-3 py-2 text-xs font-bold"
                                 >
-                                  DISPUTE
+                                  REQUEST A TOUCH-UP
                                 </button>
                               </>
                             )}
                           </>
+                        )}
+
+                        {ms.status === "INSPECTION_COUNTDOWN_ACTIVE" && (
+                          <div className="w-full border-2 border-amber-600 bg-amber-50 p-3 space-y-2 rounded-none">
+                            <div className="flex flex-wrap justify-between items-center text-xs font-mono font-bold text-amber-950">
+                              <span>⏱ 48-HOUR INSPECTION ACTIVE</span>
+                              <span>Auto-releases to artisan on deadline</span>
+                            </div>
+                            {!isWorkerView && (
+                              <div className="flex flex-wrap gap-2 pt-1">
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    handleMilestoneAction({
+                                      action: "APPROVE_PAYOUT",
+                                      milestoneId: ms.id,
+                                    })
+                                  }
+                                  className="brutal-btn brutal-btn-primary px-3 py-1.5 text-xs font-bold"
+                                >
+                                  APPROVE &amp; PAYOUT NOW
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    handleMilestoneAction({
+                                      action: "REQUEST_TOUCH_UP",
+                                      milestoneId: ms.id,
+                                      defectDescription: "Client identified touch-up items during 48h inspection.",
+                                    })
+                                  }
+                                  className="brutal-btn bg-mortar-200 text-iron-950 border-2 border-iron-950 hover:bg-mortar-300 px-3 py-1.5 text-xs font-bold"
+                                >
+                                  REQUEST A TOUCH-UP
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    handleMilestoneAction({
+                                      action: "REQUEST_EXTENSION",
+                                      milestoneId: ms.id,
+                                    })
+                                  }
+                                  className="brutal-btn bg-white text-iron-800 border-2 border-iron-950 hover:bg-mortar-100 px-2.5 py-1.5 text-xs font-mono"
+                                >
+                                  +24H BLACKOUT EXTENSION
+                                </button>
+                              </div>
+                            )}
+                          </div>
+                        )}
+
+                        {ms.status === "TOUCH_UP_WINDOW_ACTIVE" && (
+                          <div className="w-full border-2 border-rose-600 bg-rose-50 p-3 space-y-2 rounded-none">
+                            <div className="text-xs font-mono font-bold text-rose-950">
+                              ⚠️ 72-HOUR FIX WINDOW ACTIVE — Artisan inspecting &amp; rectifying flagged touch-up items
+                            </div>
+                            {isWorkerView && (
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  handleMilestoneAction({
+                                    action: "SUBMIT_PROOF",
+                                    milestoneId: ms.id,
+                                    photoUrls: ["rectification-proof-01.webp"],
+                                    notes: "Rectification proof submitted. Touch-up items addressed.",
+                                  })
+                                }
+                                className="brutal-btn brutal-btn-dark px-3 py-1.5 text-xs font-bold"
+                              >
+                                SUBMIT RECTIFICATION PROOF
+                              </button>
+                            )}
+                          </div>
                         )}
 
                         {ms.status === "WORK_SUBMITTED" && !isWorkerView && (
@@ -874,7 +948,7 @@ export default function JobWorkspacePage() {
                         {ms.status === "RELEASED" && (
                           <div className="verified-stamp -rotate-12 scale-100 duration-150">
                             <CheckCircle2 className="w-4 h-4 text-emerald-700" />
-                            [ESCROW RELEASED]
+                            [FUNDS PAID OUT]
                           </div>
                         )}
                       </div>
@@ -893,7 +967,7 @@ export default function JobWorkspacePage() {
               <div className="border-2 border-iron-950 bg-white p-6 text-center space-y-3 shadow-brutal">
                 <Lock className="w-8 h-8 text-safety-600 mx-auto" />
                 <div className="font-mono text-xs font-black uppercase text-iron-950">
-                  GATE PASS LOCKED UNTIL ESCROW IS FUNDED
+                  GATE PASS LOCKED UNTIL FUNDS ARE SECURED IN VAULT
                 </div>
                 <button
                   type="button"
@@ -1145,7 +1219,7 @@ export default function JobWorkspacePage() {
                                   onClick={() => handleAcceptQuote(q.id, "FULL_QUOTE_ESCROW")}
                                   className="brutal-btn brutal-btn-primary px-3.5 py-1.5 text-xs"
                                 >
-                                  ACCEPT &amp; FUND ESCROW
+                                  ACCEPT &amp; SECURE IN VAULT
                                 </button>
                               </div>
                             )}
@@ -1295,8 +1369,8 @@ export default function JobWorkspacePage() {
                 <Lock className="w-4 h-4 text-brick-600" />
                 <span className="font-mono text-xs font-bold uppercase text-iron-800">
                   {job.hasFundedEscrow
-                    ? "Escrow Active — Cash Bypass Monitored"
-                    : "Pre-Escrow: Phone Numbers & Cash Offers Auto-Redacted"}
+                    ? "Milestone Vault Active — Guarantee Enabled"
+                    : "Pre-Booking: Phone Numbers & Cash Offers Auto-Redacted"}
                 </span>
               </div>
 

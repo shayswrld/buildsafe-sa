@@ -39,39 +39,48 @@ const OFF_PLATFORM_SOLICITATION_PATTERNS: { regex: RegExp; reason: string }[] = 
   },
 ];
 
+export interface AntiLeakageOptions {
+  isVaultFunded?: boolean;
+  isEscrowFunded?: boolean;
+}
+
 /**
  * Protects platform commission and user physical/financial safety by masking
- * phone numbers, bank accounts, links, and cash-bypass attempts before Escrow is funded.
+ * phone numbers, bank accounts, links, and cash-bypass attempts before the Milestone Vault is funded.
  */
 export function sanitizeChatMessage(
   rawText: string,
-  isEscrowFunded: boolean
+  isFundedOrOptions: boolean | AntiLeakageOptions
 ): SanitizedChatResult {
+  const isFunded = typeof isFundedOrOptions === "boolean"
+    ? isFundedOrOptions
+    : Boolean(isFundedOrOptions?.isVaultFunded ?? isFundedOrOptions?.isEscrowFunded);
+
   let text = rawText.trim();
   const reasons = new Set<string>();
 
-  if (!isEscrowFunded) {
+  if (!isFunded) {
     if (SA_PHONE_OR_ACCOUNT_REGEX.test(text)) {
-      reasons.add("Phone or bank account number hidden prior to Escrow deposit");
+      reasons.add("Phone or bank account number hidden prior to Vault deposit");
       text = text.replace(
         SA_PHONE_OR_ACCOUNT_REGEX,
-        "[Hidden until Call-Out Escrow is funded]"
+        "[Hidden until Call-Out deposit is secured in Vault]"
       );
     }
 
     if (SPELLED_PHONE_REGEX.test(text)) {
-      reasons.add("Spelled-out contact digits hidden prior to Escrow deposit");
+      reasons.add("Spelled-out contact digits hidden prior to Vault deposit");
       text = text.replace(
         SPELLED_PHONE_REGEX,
-        "[Hidden until Call-Out Escrow is funded]"
+        "[Hidden until Call-Out deposit is secured in Vault]"
       );
     }
 
     if (EMAIL_OR_LINK_REGEX.test(text)) {
-      reasons.add("External link or email hidden prior to Escrow deposit");
+      reasons.add("External link or email hidden prior to Vault deposit");
       text = text.replace(
         EMAIL_OR_LINK_REGEX,
-        "[External contact hidden until Escrow is funded]"
+        "[External contact hidden until deposit is secured in Vault]"
       );
     }
   }
@@ -79,7 +88,7 @@ export function sanitizeChatMessage(
   for (const item of OFF_PLATFORM_SOLICITATION_PATTERNS) {
     if (item.regex.test(rawText)) {
       // Even after call-out deposit, explicit fee-bypass / cash solicitation triggers a warning
-      if (!isEscrowFunded || item.reason !== "Pre-booking external contact sharing") {
+      if (!isFunded || item.reason !== "Pre-booking external contact sharing") {
         reasons.add(item.reason);
       }
     }
@@ -92,7 +101,7 @@ export function sanitizeChatMessage(
     wasRedacted,
     reasons: Array.from(reasons),
     warningBanner: wasRedacted
-      ? "Safety & Guarantee Reminder: Keep quotes and deposits inside BuildSafe SA Escrow. Off-platform cash or direct EFTs void SAPS Gate Verification, dispute protection, and verified two-way ratings."
+      ? "Safety & Guarantee Reminder: Keep quotes and payments inside BuildSafe SA Milestone Vault. Off-platform cash or direct EFTs void SAPS Gate Verification, dispute protection, and verified two-way ratings."
       : undefined,
   };
 }
