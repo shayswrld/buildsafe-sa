@@ -142,7 +142,7 @@ const PersonaContext = createContext<PersonaContextValue>({
   config: DEFAULT_PLATFORM_CONFIG,
   personas: DEFAULT_SEED_PERSONAS,
   clearedCrewPool: [],
-  currentUser: DEFAULT_SEED_PERSONAS[0],
+  currentUser: null,
   activeRole: "CLIENT",
   availableRoles: ["CLIENT"],
   isDualRole: false,
@@ -162,7 +162,7 @@ export function PersonaProvider({ children }: { children: React.ReactNode }) {
   const [config, setConfig] = useState<FeeConfig>(DEFAULT_PLATFORM_CONFIG);
   const [personas, setPersonas] = useState<PersonaUserDTO[]>(DEFAULT_SEED_PERSONAS);
   const [clearedCrewPool, setClearedCrewPool] = useState<WorkerProfileDTO[]>([]);
-  const [selectedId, setSelectedId] = useState<string | null>("user_homeowner_lerato");
+  const [selectedId, setSelectedId] = useState<string | null>(null);
   const [activeRole, setActiveRoleState] = useState<PersonaRole>("CLIENT");
   const [loading, setLoading] = useState<boolean>(true);
 
@@ -192,7 +192,16 @@ export function PersonaProvider({ children }: { children: React.ReactNode }) {
           }
           const role = meData.user.role === "WORKER" ? "BUILDER" : meData.user.role === "ADMIN" ? "ADMIN" : "CLIENT";
           setActiveRoleState(role);
+        } else {
+          // Explicitly unauthenticated: ensure selectedId is null and clear stale storage
+          setSelectedId(null);
+          if (typeof window !== "undefined") {
+            localStorage.removeItem(STORAGE_PERSONA_KEY);
+            localStorage.removeItem(STORAGE_ROLE_KEY);
+          }
         }
+      } else {
+        setSelectedId(null);
       }
     } catch (err) {
       console.error("Bootstrap fetch error:", err);
@@ -202,19 +211,6 @@ export function PersonaProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   useEffect(() => {
-    if (typeof window !== "undefined") {
-      const savedPersona = localStorage.getItem(STORAGE_PERSONA_KEY);
-      const savedRole = localStorage.getItem(STORAGE_ROLE_KEY) as PersonaRole | null;
-      if (savedPersona) {
-        setSelectedId(savedPersona);
-      }
-      if (
-        savedRole &&
-        (savedRole === "CLIENT" || savedRole === "BUILDER" || savedRole === "ADMIN")
-      ) {
-        setActiveRoleState(savedRole);
-      }
-    }
     refreshBootstrap();
   }, [refreshBootstrap]);
 

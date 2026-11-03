@@ -66,6 +66,72 @@ body {
   }
 }
 
+/* Artisan Canvas Craftsperson Keyframes */
+@keyframes sawMotion {
+  0%, 100% {
+    transform: translate(0, 0) rotate(0deg);
+  }
+  50% {
+    transform: translate(-14px, 7px) rotate(-3deg);
+  }
+}
+
+@keyframes sawdustDrift {
+  0% {
+    transform: translate(0, 0) scale(0.8);
+    opacity: 0.9;
+  }
+  50% {
+    opacity: 0.6;
+  }
+  100% {
+    transform: translate(12px, 18px) scale(0.4);
+    opacity: 0;
+  }
+}
+
+@keyframes brickTap {
+  0%, 100% {
+    transform: translateY(0);
+  }
+  40% {
+    transform: translateY(-8px);
+  }
+  60% {
+    transform: translateY(2px);
+  }
+  75% {
+    transform: translateY(0);
+  }
+}
+
+@keyframes tileScore {
+  0%, 100% {
+    transform: translateX(0);
+  }
+  50% {
+    transform: translateX(24px);
+  }
+}
+
+.animate-saw-motion {
+  animation: sawMotion 1.8s ease-in-out infinite;
+  transform-origin: 60px 40px;
+}
+
+.animate-sawdust-drift {
+  animation: sawdustDrift 1.8s ease-out infinite;
+}
+
+.animate-brick-tap {
+  animation: brickTap 2.4s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+  transform-origin: center bottom;
+}
+
+.animate-tile-score {
+  animation: tileScore 2s ease-in-out infinite;
+}
+
 /* Accessibility: Prefers-Reduced-Motion Reset */
 @media (prefers-reduced-motion: reduce) {
   *,

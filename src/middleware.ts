@@ -7,16 +7,19 @@ import { verifySession, SESSION_COOKIE, SessionClaims } from "@/lib/auth/session
  *
  * Rules:
  * 1. Public assets, static files, and auth API endpoints bypass middleware.
- * 2. Unauthenticated visitors to root `/` or protected portals are redirected to `/login`.
- * 3. Logged-in users who have NOT completed profile setup are redirected to `/profile/setup`.
- * 4. Logged-in users attempting to access `/login` or `/signup` are redirected to their dashboard.
- * 5. Role segregation:
+ * 2. Unauthenticated visitors to root `/`, `/jobs`, `/about`, and auth pages bypass without redirects.
+ * 3. Unauthenticated visitors attempting to access protected routes (`/client/*`, `/worker/*`, `/admin/*`) are redirected to `/login?from=...`.
+ * 4. Logged-in users who have NOT completed profile setup are redirected to `/profile/setup`.
+ * 5. Logged-in users visiting root `/`, `/login`, or `/signup` are redirected to their designated dashboard.
+ * 6. Role segregation:
  *    - `/admin` requires ADMIN role.
  *    - `/worker` and `/worker/onboarding` require WORKER or DUAL role (or ADMIN).
- *    - `/client` requires HOMEOWNER or DUAL role (or ADMIN).
+ *    - `/client` requires HOMEOWNER or DUAL role (or ADMIN). Workers attempting access are routed to `/worker/dashboard?notice=client_access_restricted`.
  */
 
 const PUBLIC_EXACT_PATHS = new Set([
+  "/",
+  "/jobs",
   "/login",
   "/signup",
   "/about",
@@ -48,12 +51,10 @@ export async function middleware(request: NextRequest) {
 
   // If user is NOT authenticated:
   if (!session) {
-    // If accessing root or protected route, redirect to /login
-    if (pathname === "/" || (!isPublicPage && !isAuthPage)) {
+    // If accessing a protected route, redirect to /login with target 'from'
+    if (!isPublicPage && !isAuthPage) {
       const loginUrl = new URL("/login", request.url);
-      if (pathname !== "/") {
-        loginUrl.searchParams.set("from", pathname);
-      }
+      loginUrl.searchParams.set("from", pathname);
       return NextResponse.redirect(loginUrl);
     }
     return NextResponse.next();
@@ -72,10 +73,16 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(new URL(dest, request.url));
   }
 
-  // If logged in and visiting login or signup page, redirect to appropriate home/dashboard
+  // If logged in and visiting the public landing page "/", route to appropriate dashboard
+  if (pathname === "/") {
+    const dest = session.role === "WORKER" ? "/worker/dashboard" : session.role === "ADMIN" ? "/admin" : "/client/dashboard";
+    return NextResponse.redirect(new URL(dest, request.url));
+  }
+
+  // If logged in and visiting login or signup page, redirect to 'from' parameter or dashboard
   if (isAuthPage) {
     const from = request.nextUrl.searchParams.get("from");
-    if (from && from.startsWith("/")) {
+    if (from && from.startsWith("/") && !from.startsWith("//")) {
       return NextResponse.redirect(new URL(from, request.url));
     }
     const dest = session.role === "WORKER" ? "/worker/dashboard" : session.role === "ADMIN" ? "/admin" : "/client/dashboard";
@@ -98,7 +105,7 @@ export async function middleware(request: NextRequest) {
 
   if (pathname.startsWith("/client")) {
     if (session.role !== "HOMEOWNER" && session.role !== "DUAL" && session.role !== "ADMIN") {
-      return NextResponse.redirect(new URL("/worker/dashboard", request.url));
+      return NextResponse.redirect(new URL("/worker/dashboard?notice=client_access_restricted", request.url));
     }
   }
 
