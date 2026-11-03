@@ -13,34 +13,6 @@ body {
 }
 
 @layer components {
-  /* Raw Grotesque Sans Headers */
-  .brutal-heading {
-    @apply font-black tracking-tight text-iron-950;
-  }
-
-  /* Section Labels (// 01 · ...) */
-  .brutal-label {
-    @apply font-mono text-xs font-bold uppercase tracking-widest text-brick-600;
-  }
-
-  /* Monospace Numbers & Metrics */
-  .brutal-mono {
-    @apply font-mono tabular-nums;
-  }
-
-  /* Sharp Brutalist Border & Container */
-  .brutal-border {
-    @apply border-2 border-iron-950 rounded-none;
-  }
-
-  .brutal-card {
-    @apply border-2 border-iron-950 bg-white rounded-none shadow-brutal;
-  }
-
-  .brutal-card-sm {
-    @apply border-2 border-iron-950 bg-white rounded-none shadow-brutal-sm;
-  }
-
   /* Tactile Mechanical Button (100ms depression) */
   .brutal-btn {
     @apply border-2 border-iron-950 rounded-none font-bold text-xs uppercase tracking-wider
@@ -60,15 +32,6 @@ body {
 
   .brutal-btn-outline {
     @apply brutal-btn bg-white text-iron-950 hover:bg-mortar-200;
-  }
-
-  /* 150ms Accordion & Drawer Disclosures */
-  .brutal-accordion {
-    @apply transition-all duration-150 ease-in-out;
-  }
-
-  .brutal-accordion-trigger {
-    @apply cursor-pointer select-none transition-colors duration-150;
   }
 
   /* Verified Stamp Animation & Component */

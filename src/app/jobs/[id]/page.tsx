@@ -25,23 +25,19 @@ import { formatZar } from "@/lib/config";
 
 type JobWorkspaceTab = "escrow" | "gate" | "quotes" | "chat" | "ratings";
 
+const DEFAULT_TAB_MAP: Record<string, JobWorkspaceTab> = {
+  OPEN: "quotes",
+  QUOTED: "quotes",
+  ESCROW_FUNDED: "gate",
+  WORKER_ON_SITE: "escrow",
+  WORK_SUBMITTED: "escrow",
+  COMPLETED: "ratings",
+};
+
 function getDefaultWorkspaceTab(
   jobStatus: string | undefined | null
 ): JobWorkspaceTab {
-  switch (jobStatus) {
-    case "OPEN":
-    case "QUOTED":
-      return "quotes";
-    case "ESCROW_FUNDED":
-      return "gate";
-    case "WORKER_ON_SITE":
-    case "WORK_SUBMITTED":
-      return "escrow";
-    case "COMPLETED":
-      return "ratings";
-    default:
-      return "quotes";
-  }
+  return (jobStatus && DEFAULT_TAB_MAP[jobStatus]) || "quotes";
 }
 
 interface JobDetailDTO {

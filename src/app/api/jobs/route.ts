@@ -2,66 +2,66 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 
 export async function GET(req: NextRequest) {
-  let homeownerId: string | null = null;
-  if (req && req.url) {
-    try {
-      const url = new URL(req.url);
-      homeownerId = url.searchParams.get("homeownerId");
-    } catch {
-      // fallback
-    }
-  }
+  try {
+    const homeownerId = req.nextUrl.searchParams.get("homeownerId");
 
-  const jobs = await prisma.job.findMany({
-    where: homeownerId ? { homeownerId } : undefined,
-    orderBy: { createdAt: "desc" },
-    include: {
-      homeowner: true,
-      selectedWorkerProfile: {
-        include: {
-          user: true,
-          certifications: true,
-        },
-      },
-      quotes: {
-        include: {
-          workerProfile: {
-            include: {
-              user: true,
-              certifications: true,
-            },
+    const jobs = await prisma.job.findMany({
+      where: homeownerId ? { homeownerId } : undefined,
+      orderBy: { createdAt: "desc" },
+      include: {
+        homeowner: true,
+        selectedWorkerProfile: {
+          include: {
+            user: true,
+            certifications: true,
           },
         },
-        orderBy: { createdAt: "asc" },
-      },
-      milestones: {
-        include: {
-          escrowTransaction: true,
+        quotes: {
+          include: {
+            workerProfile: {
+              include: {
+                user: true,
+                certifications: true,
+              },
+            },
+          },
+          orderBy: { createdAt: "asc" },
         },
-        orderBy: { sequence: "asc" },
-      },
-      gateVisits: {
-        include: {
-          crewMembers: {
-            include: {
-              workerProfile: {
-                include: { user: true },
+        milestones: {
+          include: {
+            escrowTransaction: true,
+          },
+          orderBy: { sequence: "asc" },
+        },
+        gateVisits: {
+          include: {
+            crewMembers: {
+              include: {
+                workerProfile: {
+                  include: { user: true },
+                },
               },
             },
           },
         },
+        reviews: true,
       },
-      reviews: true,
-    },
-  });
+    });
 
-  // Never leak encrypted street address on the public job feed
-  const safeJobs = jobs.map((j) => ({
-    ...j,
-    streetAddressEncrypted: undefined,
-  }));
+    // Never leak encrypted street address on the public job feed
+    const safeJobs = jobs.map((j) => ({
+      ...j,
+      streetAddressEncrypted: undefined,
+    }));
 
-  return NextResponse.json({ jobs: safeJobs });
+    return NextResponse.json({ jobs: safeJobs });
+  } catch (err) {
+    console.warn("Failed to fetch jobs from database in /api/jobs GET; returning empty degraded array:", err);
+    return NextResponse.json(
+      { jobs: [], degraded: true, message: "Database offline; operating in fallback mode." },
+      { status: 200, headers: { "X-BuildSafe-Degraded": "true" } }
+    );
+  }
 }
 
 export async function POST(req: NextRequest) {

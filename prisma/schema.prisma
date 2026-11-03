@@ -32,6 +32,13 @@ model User {
   ratingCount Int      @default(0)
   createdAt   DateTime @default(now())
 
+  // --- Authentication & profile lifecycle ---
+  passwordHash       String?   // scrypt$N$r$p$salt$hash (never returned to clients)
+  tokenVersion       Int       @default(0) // bump to invalidate all outstanding sessions
+  profileCompletedAt DateTime? // null => user must finish /profile/setup before using the app
+  popiaConsentAt     DateTime?
+  lastLoginAt        DateTime?
+
   workerProfile   WorkerProfile?
   postedJobs      Job[]           @relation("HomeownerJobs")
   sentMessages    ChatMessage[]

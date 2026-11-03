@@ -4,30 +4,24 @@ import React, { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
-  Briefcase,
   Hammer,
   Home,
   Layers,
   ArrowRight,
-  ShieldCheck,
-  CheckCircle2,
+  AlertTriangle,
 } from "lucide-react";
 import { usePersona } from "@/components/PersonaContext";
-import { TRADE_CATEGORIES } from "@/lib/config";
 
 export default function SignupPage() {
   const router = useRouter();
-  const { register } = usePersona();
+  const { signupWithCredentials } = usePersona();
 
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
   const [email, setEmail] = useState("");
-  const [suburb, setSuburb] = useState("");
-  const [city, setCity] = useState("Johannesburg");
-  const [rolePreference, setRolePreference] = useState<
-    "CLIENT" | "BUILDER" | "DUAL"
-  >("CLIENT");
-  const [trade, setTrade] = useState("PLUMBING");
+  const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [accountType, setAccountType] = useState<"CLIENT" | "BUILDER" | "DUAL">("CLIENT");
   const [errorMessage, setErrorMessage] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
@@ -40,36 +34,32 @@ export default function SignupPage() {
       return;
     }
     if (!phone.trim()) {
-      setErrorMessage("Please enter your contact phone number.");
+      setErrorMessage("Please enter your South African mobile number.");
       return;
     }
-    if (!suburb.trim()) {
-      setErrorMessage("Please enter your suburb.");
+    if (password.length < 10) {
+      setErrorMessage("Password must be at least 10 characters.");
+      return;
+    }
+    if (password !== confirmPassword) {
+      setErrorMessage("Passwords do not match.");
       return;
     }
 
     try {
       setSubmitting(true);
-      await register({
+      await signupWithCredentials({
         name: name.trim(),
         phone: phone.trim(),
         email: email.trim() || undefined,
-        suburb: suburb.trim(),
-        city: city.trim(),
-        rolePreference,
-        trade:
-          rolePreference === "BUILDER" || rolePreference === "DUAL"
-            ? trade
-            : undefined,
+        password,
+        accountType,
       });
 
-      if (rolePreference === "BUILDER") {
-        router.push("/worker/dashboard");
-      } else {
-        router.push("/client/dashboard");
-      }
+      // Always advance to Stage 2: Mandatory profile completion
+      router.push("/profile/setup");
     } catch (err: any) {
-      setErrorMessage(err?.message || "Failed to register. Please try again.");
+      setErrorMessage(err?.message || "Failed to register. Please check your details.");
       setSubmitting(false);
     }
   };
@@ -80,20 +70,20 @@ export default function SignupPage() {
         {/* Architectural Header */}
         <div className="border-2 border-iron-950 bg-white p-6 shadow-brutal">
           <div className="font-mono text-xs font-bold uppercase tracking-widest text-brick-600 mb-2">
-            // 02 · NEW ACCOUNT REGISTRATION
+            // 02 · NEW ACCOUNT REGISTRATION · STAGE 1 OF 2
           </div>
           <h1 className="text-2xl sm:text-3xl font-black font-mono uppercase tracking-tight text-iron-950">
-            Create Your Account
+            Create Your BuildSafe SA Account
           </h1>
           <p className="mt-2 text-sm font-mono text-iron-700">
-            Select your platform role to configure segregated navigation, escrow protection, and artisan verifications.
+            Join the verified South African construction marketplace. Account creation establishes your secure credentials, followed by profile location and vetting configuration.
           </p>
         </div>
 
         {/* Registration Form Card */}
         <div className="border-2 border-iron-950 bg-white p-6 shadow-brutal space-y-6">
           <form onSubmit={handleSubmit} className="space-y-5">
-            {/* Role Preference Selection */}
+            {/* Account Role Selection */}
             <div>
               <label className="block text-xs font-mono font-bold uppercase tracking-wider text-iron-950 mb-2">
                 1. Select Account Perspective
@@ -101,9 +91,9 @@ export default function SignupPage() {
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 <button
                   type="button"
-                  onClick={() => setRolePreference("CLIENT")}
+                  onClick={() => setAccountType("CLIENT")}
                   className={`p-3 border-2 border-iron-950 text-left transition-all duration-100 cursor-pointer ${
-                    rolePreference === "CLIENT"
+                    accountType === "CLIENT"
                       ? "bg-brick-600 text-white shadow-none translate-x-[1px] translate-y-[1px]"
                       : "bg-white text-iron-950 shadow-brutal-sm hover:bg-mortar-200"
                   }`}
@@ -114,7 +104,7 @@ export default function SignupPage() {
                   </div>
                   <p
                     className={`mt-1 text-[11px] font-mono leading-tight ${
-                      rolePreference === "CLIENT" ? "text-mortar-100" : "text-iron-700"
+                      accountType === "CLIENT" ? "text-mortar-100" : "text-iron-700"
                     }`}
                   >
                     Post renovation jobs, fund escrow &amp; review contractor quotes.
@@ -123,9 +113,9 @@ export default function SignupPage() {
 
                 <button
                   type="button"
-                  onClick={() => setRolePreference("BUILDER")}
+                  onClick={() => setAccountType("BUILDER")}
                   className={`p-3 border-2 border-iron-950 text-left transition-all duration-100 cursor-pointer ${
-                    rolePreference === "BUILDER"
+                    accountType === "BUILDER"
                       ? "bg-iron-950 text-white shadow-none translate-x-[1px] translate-y-[1px]"
                       : "bg-white text-iron-950 shadow-brutal-sm hover:bg-mortar-200"
                   }`}
@@ -136,7 +126,7 @@ export default function SignupPage() {
                   </div>
                   <p
                     className={`mt-1 text-[11px] font-mono leading-tight ${
-                      rolePreference === "BUILDER" ? "text-mortar-100" : "text-iron-700"
+                      accountType === "BUILDER" ? "text-mortar-100" : "text-iron-700"
                     }`}
                   >
                     Browse client jobs, submit quotes &amp; manage CoC licenses.
@@ -145,9 +135,9 @@ export default function SignupPage() {
 
                 <button
                   type="button"
-                  onClick={() => setRolePreference("DUAL")}
+                  onClick={() => setAccountType("DUAL")}
                   className={`p-3 border-2 border-iron-950 text-left transition-all duration-100 cursor-pointer ${
-                    rolePreference === "DUAL"
+                    accountType === "DUAL"
                       ? "bg-brick-800 text-white shadow-none translate-x-[1px] translate-y-[1px]"
                       : "bg-white text-iron-950 shadow-brutal-sm hover:bg-mortar-200"
                   }`}
@@ -158,7 +148,7 @@ export default function SignupPage() {
                   </div>
                   <p
                     className={`mt-1 text-[11px] font-mono leading-tight ${
-                      rolePreference === "DUAL" ? "text-mortar-100" : "text-iron-700"
+                      accountType === "DUAL" ? "text-mortar-100" : "text-iron-700"
                     }`}
                   >
                     Both homeowner and artisan. Toggle perspectives anytime.
@@ -167,33 +157,6 @@ export default function SignupPage() {
               </div>
             </div>
 
-            {/* If Builder or Dual: Trade Selection */}
-            {(rolePreference === "BUILDER" || rolePreference === "DUAL") && (
-              <div className="p-3 border-2 border-iron-950 bg-mortar-50 space-y-2">
-                <label
-                  htmlFor="trade-select"
-                  className="block text-xs font-mono font-bold uppercase tracking-wider text-iron-950"
-                >
-                  Primary Trade / Skill
-                </label>
-                <select
-                  id="trade-select"
-                  value={trade}
-                  onChange={(e) => setTrade(e.target.value)}
-                  className="w-full px-3 py-2 border-2 border-iron-950 bg-white font-mono text-xs font-bold text-iron-950 focus:outline-none rounded-none shadow-brutal-sm"
-                >
-                  {TRADE_CATEGORIES.map((t) => (
-                    <option key={t.slug} value={t.slug}>
-                      {t.label} ({t.shortDesc})
-                    </option>
-                  ))}
-                </select>
-                <p className="text-[11px] font-mono text-iron-700">
-                  You can add more certifications and verified CoC licenses after onboarding.
-                </p>
-              </div>
-            )}
-
             {/* Profile Information */}
             <div className="space-y-4 pt-1">
               <div>
@@ -201,15 +164,15 @@ export default function SignupPage() {
                   htmlFor="name-input"
                   className="block text-xs font-mono font-bold uppercase tracking-wider text-iron-950 mb-1"
                 >
-                  Full Name / Business Name
+                  Full Name / Legal Entity
                 </label>
                 <input
                   id="name-input"
                   type="text"
+                  required
                   value={name}
                   onChange={(e) => setName(e.target.value)}
-                  placeholder="e.g. Johan Nel"
-                  required
+                  placeholder="e.g. Sipho Dlamini"
                   className="w-full px-3 py-2 border-2 border-iron-950 bg-white font-mono text-sm text-iron-950 placeholder:text-iron-500 focus:outline-none focus:ring-1 focus:ring-brick-600 rounded-none shadow-brutal-sm"
                 />
               </div>
@@ -220,15 +183,15 @@ export default function SignupPage() {
                     htmlFor="phone-reg-input"
                     className="block text-xs font-mono font-bold uppercase tracking-wider text-iron-950 mb-1"
                   >
-                    Phone (+27)
+                    South African Mobile (+27)
                   </label>
                   <input
                     id="phone-reg-input"
                     type="tel"
+                    required
                     value={phone}
                     onChange={(e) => setPhone(e.target.value)}
-                    placeholder="+27821234567"
-                    required
+                    placeholder="082 123 4567"
                     className="w-full px-3 py-2 border-2 border-iron-950 bg-white font-mono text-sm text-iron-950 placeholder:text-iron-500 focus:outline-none focus:ring-1 focus:ring-brick-600 rounded-none shadow-brutal-sm"
                   />
                 </div>
@@ -238,7 +201,7 @@ export default function SignupPage() {
                     htmlFor="email-input"
                     className="block text-xs font-mono font-bold uppercase tracking-wider text-iron-950 mb-1"
                   >
-                    Email (Optional)
+                    Email Address (Optional)
                   </label>
                   <input
                     id="email-input"
@@ -251,39 +214,40 @@ export default function SignupPage() {
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              {/* Password Fields */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
                 <div>
                   <label
-                    htmlFor="suburb-input"
+                    htmlFor="password-reg"
                     className="block text-xs font-mono font-bold uppercase tracking-wider text-iron-950 mb-1"
                   >
-                    Suburb
+                    Account Password (min 10 chars)
                   </label>
                   <input
-                    id="suburb-input"
-                    type="text"
-                    value={suburb}
-                    onChange={(e) => setSuburb(e.target.value)}
-                    placeholder="e.g. Randburg"
+                    id="password-reg"
+                    type="password"
                     required
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    placeholder="••••••••••••"
                     className="w-full px-3 py-2 border-2 border-iron-950 bg-white font-mono text-sm text-iron-950 placeholder:text-iron-500 focus:outline-none focus:ring-1 focus:ring-brick-600 rounded-none shadow-brutal-sm"
                   />
                 </div>
 
                 <div>
                   <label
-                    htmlFor="city-input"
+                    htmlFor="password-confirm"
                     className="block text-xs font-mono font-bold uppercase tracking-wider text-iron-950 mb-1"
                   >
-                    City / Metropolitan
+                    Confirm Password
                   </label>
                   <input
-                    id="city-input"
-                    type="text"
-                    value={city}
-                    onChange={(e) => setCity(e.target.value)}
-                    placeholder="Johannesburg"
+                    id="password-confirm"
+                    type="password"
                     required
+                    value={confirmPassword}
+                    onChange={(e) => setConfirmPassword(e.target.value)}
+                    placeholder="••••••••••••"
                     className="w-full px-3 py-2 border-2 border-iron-950 bg-white font-mono text-sm text-iron-950 placeholder:text-iron-500 focus:outline-none focus:ring-1 focus:ring-brick-600 rounded-none shadow-brutal-sm"
                   />
                 </div>
@@ -291,8 +255,9 @@ export default function SignupPage() {
             </div>
 
             {errorMessage && (
-              <div className="p-2 border-2 border-brick-600 bg-brick-50 text-brick-700 font-mono text-xs font-bold">
-                {errorMessage}
+              <div className="p-3 border-2 border-brick-600 bg-brick-50 text-brick-700 font-mono text-xs font-bold flex items-center gap-2">
+                <AlertTriangle className="w-4 h-4 shrink-0" />
+                <span>{errorMessage}</span>
               </div>
             )}
 
@@ -301,14 +266,14 @@ export default function SignupPage() {
               disabled={submitting}
               className="w-full py-3 px-4 border-2 border-iron-950 bg-brick-600 hover:bg-brick-700 text-white font-mono text-xs font-bold uppercase tracking-wider shadow-brutal hover:-translate-x-[1px] hover:-translate-y-[1px] active:translate-x-[2px] active:translate-y-[2px] active:shadow-none transition-all duration-100 cursor-pointer disabled:opacity-50"
             >
-              {submitting ? "Registering Session..." : "Create Account & Enter Portal"}
+              {submitting ? "Creating Account..." : "Create Account & Continue to Stage 2"}
             </button>
           </form>
 
           {/* Login Redirect */}
           <div className="pt-4 border-t-2 border-iron-950 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs font-mono">
             <span className="text-iron-700">
-              Already have an account or looking for demo personas?
+              Already have an account registered?
             </span>
             <Link
               href="/login"

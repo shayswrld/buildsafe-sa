@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { DEFAULT_PLATFORM_CONFIG } from "@/lib/config";
+import { DEFAULT_SEED_PERSONAS, DEFAULT_SEED_CREW_POOL } from "@/lib/seed-personas";
 
 const DUAL_ROLE_JOHAN = {
   id: "user_dual_johan",
@@ -49,9 +50,10 @@ const DUAL_ROLE_CERTIFICATION = {
 };
 
 export async function GET() {
-  let config = await prisma.platformConfig.findUnique({
-    where: { id: "default" },
-  });
+  try {
+    let config = await prisma.platformConfig.findUnique({
+      where: { id: "default" },
+    });
 
   if (!config) {
     config = await prisma.platformConfig.create({
@@ -61,6 +63,8 @@ export async function GET() {
       },
     });
   }
+
+  const { userId, ...workerProfileData } = DUAL_ROLE_WORKER_PROFILE;
 
   // Ensure dual-role user Johan Nel exists in DB if possible
   try {
@@ -75,7 +79,7 @@ export async function GET() {
           ...DUAL_ROLE_JOHAN,
           workerProfile: {
             create: {
-              ...DUAL_ROLE_WORKER_PROFILE,
+              ...workerProfileData,
               selfieVerifiedAt: new Date("2026-07-15T09:00:00Z"),
               popiaConsentAt: new Date("2026-07-15T09:05:00Z"),
               sapsClearedAt: new Date("2026-07-16T11:00:00Z"),
@@ -184,9 +188,26 @@ export async function GET() {
     }
   }
 
-  return NextResponse.json({
-    config,
-    personas,
-    clearedCrewPool,
-  });
+    return NextResponse.json({
+      config,
+      personas,
+      clearedCrewPool,
+    });
+  } catch (err) {
+    console.warn("Bootstrap database error; falling back to resilient static seed personas:", err);
+    return NextResponse.json(
+      {
+        config: DEFAULT_PLATFORM_CONFIG,
+        personas: DEFAULT_SEED_PERSONAS,
+        clearedCrewPool: DEFAULT_SEED_CREW_POOL,
+        degraded: true,
+      },
+      {
+        status: 200,
+        headers: {
+          "X-BuildSafe-Degraded": "true",
+        },
+      }
+    );
+  }
 }

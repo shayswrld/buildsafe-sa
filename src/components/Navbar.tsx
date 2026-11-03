@@ -13,7 +13,6 @@ import {
   Menu,
   X,
   Info,
-  Layers,
   Home,
   ShieldCheck,
   LogOut,
@@ -30,55 +29,51 @@ function tierBadgeLabel(tier?: string) {
   return "";
 }
 
-export interface BreadcrumbItem {
+interface BreadcrumbItem {
   label: string;
   href?: string;
 }
 
-export function Breadcrumbs({
-  items,
-  className = "",
-}: {
-  items?: BreadcrumbItem[];
-  className?: string;
-}) {
+const ROUTE_LABELS: Record<string, string> = {
+  jobs: "JOBS",
+  new: "POST A JOB",
+  worker: "WORKER HUB",
+  client: "CLIENT HUB",
+  dashboard: "DASHBOARD",
+  onboarding: "SAPS ONBOARDING",
+  about: "ABOUT US",
+  admin: "ADMIN CONSOLE",
+  login: "SIGN IN",
+  signup: "REGISTER",
+};
+
+export function Breadcrumbs() {
   const pathname = usePathname();
 
-  const breadcrumbItems =
-    items ||
-    (() => {
-      if (!pathname || pathname === "/") return [{ label: "HOME" }];
-      const parts = pathname.split("/").filter(Boolean);
-      const list: BreadcrumbItem[] = [{ label: "HOME", href: "/" }];
-      let acc = "";
-      parts.forEach((p, idx) => {
-        acc += `/${p}`;
-        const isLast = idx === parts.length - 1;
-        let label = p.replace(/-/g, " ").toUpperCase();
-        if (p === "jobs") label = "JOBS";
-        else if (p === "new") label = "POST A JOB";
-        else if (p === "worker") label = "WORKER HUB";
-        else if (p === "client") label = "CLIENT HUB";
-        else if (p === "dashboard") label = "DASHBOARD";
-        else if (p === "onboarding") label = "SAPS ONBOARDING";
-        else if (p === "about") label = "ABOUT US";
-        else if (p === "admin") label = "ADMIN CONSOLE";
-        else if (p === "login") label = "SIGN IN";
-        else if (p === "signup") label = "REGISTER";
-        else if (parts[0] === "jobs" && idx === 1) {
-          label = `JOB #${p.slice(0, 10)}`;
-        }
-        list.push({ label, href: isLast ? undefined : acc });
-      });
-      return list;
-    })();
+  const breadcrumbItems = (() => {
+    if (!pathname || pathname === "/") return [{ label: "HOME" }];
+    const parts = pathname.split("/").filter(Boolean);
+    const list: BreadcrumbItem[] = [{ label: "HOME", href: "/" }];
+    let acc = "";
+    parts.forEach((p, idx) => {
+      acc += `/${p}`;
+      const isLast = idx === parts.length - 1;
+      const label =
+        ROUTE_LABELS[p] ??
+        (parts[0] === "jobs" && idx === 1
+          ? `JOB #${p.slice(0, 10)}`
+          : p.replace(/-/g, " ").toUpperCase());
+      list.push({ label, href: isLast ? undefined : acc });
+    });
+    return list;
+  })();
 
-  if (pathname === "/" && !items) return null;
+  if (pathname === "/") return null;
 
   return (
     <nav
       aria-label="Breadcrumbs"
-      className={`text-xs font-mono uppercase tracking-widest text-iron-700 flex items-center flex-wrap gap-1.5 ${className}`}
+      className="text-xs font-mono uppercase tracking-widest text-iron-700 flex items-center flex-wrap gap-1.5"
     >
       {breadcrumbItems.map((item, i) => {
         const isLast = i === breadcrumbItems.length - 1;
@@ -192,7 +187,7 @@ export function Navbar() {
             </div>
             <div className="flex items-center gap-1.5">
               <span className="font-mono font-black text-base tracking-tight text-iron-950 uppercase">
-                {config.platformName ? "BUILDSAFE" : "BUILDSAFE"}
+                {config.platformName || "BUILDSAFE"}
               </span>
               <span className="bg-iron-950 text-mortar-100 px-1 py-0.5 text-[10px] font-mono font-bold tracking-wider border border-iron-950">
                 ZA
@@ -231,6 +226,7 @@ export function Navbar() {
           {isDualRole && (
             <button
               type="button"
+              suppressHydrationWarning
               id="dual-role-toggle-btn"
               onClick={toggleRole}
               aria-label="Toggle between Client and Builder perspective"
@@ -400,6 +396,7 @@ export function Navbar() {
           <div className="flex items-center border-2 border-iron-950 bg-white shadow-brutal-sm px-2 py-1 text-xs font-mono">
             <select
               id="persona-select"
+              suppressHydrationWarning
               aria-label="Select Active Demo Persona"
               value={currentUser?.id ?? ""}
               onChange={(e) => setCurrentUserId(e.target.value)}
@@ -456,6 +453,7 @@ export function Navbar() {
           {currentUser ? (
             <button
               type="button"
+              suppressHydrationWarning
               onClick={() => {
                 logout();
                 window.location.href = "/login";
@@ -479,6 +477,7 @@ export function Navbar() {
           {/* Mobile Menu Button */}
           <button
             type="button"
+            suppressHydrationWarning
             onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
             className="md:hidden border-2 border-iron-950 bg-white p-1 shadow-brutal-sm text-iron-950 active:translate-x-[1px] active:translate-y-[1px]"
             aria-label={mobileMenuOpen ? "Close menu" : "Open menu"}
@@ -510,6 +509,7 @@ export function Navbar() {
             {isDualRole && (
               <button
                 type="button"
+                suppressHydrationWarning
                 onClick={() => {
                   toggleRole();
                   setMobileMenuOpen(false);

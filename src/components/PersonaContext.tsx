@@ -8,10 +8,13 @@ import React, {
   useState,
 } from "react";
 import { DEFAULT_PLATFORM_CONFIG, FeeConfig } from "@/lib/config";
+import { DEFAULT_SEED_PERSONAS } from "@/lib/seed-personas";
+
+export { DEFAULT_SEED_PERSONAS };
 
 export type PersonaRole = "CLIENT" | "BUILDER" | "ADMIN";
 
-export interface CertificationDTO {
+interface CertificationDTO {
   id: string;
   body: string;
   registrationNumber: string;
@@ -22,7 +25,7 @@ export interface CertificationDTO {
   notes?: string | null;
 }
 
-export interface BuilderCompanyDTO {
+interface BuilderCompanyDTO {
   id: string;
   name: string;
   tradingName?: string | null;
@@ -79,14 +82,12 @@ export interface PersonaUserDTO {
   isDualRole?: boolean;
 }
 
-export interface RegisterUserData {
+interface SignupCredentialsData {
   name: string;
   phone: string;
-  suburb: string;
-  city?: string;
   email?: string;
-  rolePreference: "CLIENT" | "BUILDER" | "DUAL";
-  trade?: string;
+  password: string;
+  accountType: "CLIENT" | "BUILDER" | "DUAL";
 }
 
 export interface PersonaContextValue {
@@ -101,8 +102,13 @@ export interface PersonaContextValue {
   setActiveRole: (role: PersonaRole) => void;
   toggleRole: () => void;
   login: (userId: string, role?: PersonaRole) => void;
+  loginWithCredentials: (
+    identifier: string,
+    password: string
+  ) => Promise<{ success: boolean; role: string; profileCompleted: boolean }>;
+  devQuickLogin: (userId: string, role?: PersonaRole) => Promise<void>;
+  signupWithCredentials: (data: SignupCredentialsData) => Promise<any>;
   logout: () => void;
-  register: (data: RegisterUserData) => Promise<PersonaUserDTO>;
   refreshBootstrap: () => Promise<void>;
   loading: boolean;
 }
@@ -132,127 +138,6 @@ export function inferDefaultRole(user: PersonaUserDTO | null): PersonaRole {
 const STORAGE_PERSONA_KEY = "buildsafe_active_persona_id";
 const STORAGE_ROLE_KEY = "buildsafe_active_role";
 
-const DEFAULT_SEED_PERSONAS: PersonaUserDTO[] = [
-  {
-    id: "user_homeowner_lerato",
-    name: "Lerato Mokoena",
-    phone: "+27825551020",
-    email: "lerato.m@example.co.za",
-    role: "HOMEOWNER",
-    suburb: "Fourways",
-    city: "Johannesburg",
-    avatarUrl: "LM",
-    ratingAvg: 4.95,
-    ratingCount: 4,
-    postedJobsCount: 3,
-    isDualRole: false,
-    workerProfile: null,
-  },
-  {
-    id: "user_worker_sipho",
-    name: "Sipho Dlamini",
-    phone: "+27723104481",
-    email: "sipho.d@example.co.za",
-    role: "WORKER",
-    suburb: "Cosmo City / Fourways",
-    city: "Johannesburg",
-    avatarUrl: "SD",
-    ratingAvg: 4.95,
-    ratingCount: 14,
-    postedJobsCount: 0,
-    isDualRole: false,
-    workerProfile: {
-      id: "wp_sipho",
-      userId: "user_worker_sipho",
-      roleInCompany: "DIRECTOR_LEAD",
-      vettingTier: "TIER_3_COC_CERTIFIED",
-      saIdMasked: "860414*****085",
-      citizenshipStatus: "SA_CITIZEN",
-      selfieVerified: true,
-      popiaConsentSigned: true,
-      huruFeePaid: true,
-      sapsStatus: "CLEARED",
-      sapsCertificateRef: "SAPS-CRC-2026-841209",
-      tradesJson: JSON.stringify(["PLUMBING", "TILING"]),
-      nearestHardwareHub: "Builders Warehouse Fourways (Johannesburg)",
-      yearsExperience: 11,
-      bio: "Licensed PIRB plumber & bathroom renovation tiler.",
-      walletBalanceZar: 2640,
-      totalPaidOutZar: 28450,
-      completedJobsCount: 14,
-      certifications: [
-        {
-          id: "cert_pirb_1",
-          body: "PIRB",
-          registrationNumber: "PIRB-44819-ZA",
-          tradeCategory: "PLUMBING",
-          status: "VERIFIED",
-          registryVerifyUrl: "https://www.pirb.co.za/verify-a-plumber/",
-        },
-      ],
-    },
-  },
-  {
-    id: "user_dual_johan",
-    name: "Johan Nel",
-    phone: "+27823334455",
-    email: "johan.nel@example.co.za",
-    role: "DUAL",
-    suburb: "Randburg",
-    city: "Johannesburg",
-    avatarUrl: "JN",
-    ratingAvg: 4.9,
-    ratingCount: 8,
-    postedJobsCount: 2,
-    isDualRole: true,
-    workerProfile: {
-      id: "wp_johan",
-      userId: "user_dual_johan",
-      roleInCompany: "INDEPENDENT_ARTISAN",
-      vettingTier: "TIER_3_COC_CERTIFIED",
-      saIdMasked: "820512*****081",
-      citizenshipStatus: "SA_CITIZEN",
-      selfieVerified: true,
-      popiaConsentSigned: true,
-      huruFeePaid: true,
-      sapsStatus: "CLEARED",
-      sapsCertificateRef: "SAPS-CRC-2026-771920",
-      tradesJson: JSON.stringify(["ELECTRICAL", "HANDYMAN"]),
-      nearestHardwareHub: "Builders Warehouse Northriding (Randburg)",
-      yearsExperience: 10,
-      bio: "Master Electrician and general property renovator.",
-      walletBalanceZar: 3200,
-      totalPaidOutZar: 21500,
-      completedJobsCount: 11,
-      certifications: [
-        {
-          id: "cert_johan_ecb",
-          body: "ECB_WIREMAN",
-          registrationNumber: "ECB-90214-GP",
-          tradeCategory: "ELECTRICAL",
-          status: "VERIFIED",
-          registryVerifyUrl: "https://ecb.org.za/verify-registered-person/",
-        },
-      ],
-    },
-  },
-  {
-    id: "user_admin_owner",
-    name: "Platform Founder (Admin)",
-    phone: "+27820000001",
-    email: "founder@buildsafesa.co.za",
-    role: "ADMIN",
-    suburb: "Sandton",
-    city: "Johannesburg",
-    avatarUrl: "PF",
-    ratingAvg: 5.0,
-    ratingCount: 0,
-    postedJobsCount: 0,
-    isDualRole: false,
-    workerProfile: null,
-  },
-];
-
 const PersonaContext = createContext<PersonaContextValue>({
   config: DEFAULT_PLATFORM_CONFIG,
   personas: DEFAULT_SEED_PERSONAS,
@@ -265,8 +150,10 @@ const PersonaContext = createContext<PersonaContextValue>({
   setActiveRole: () => {},
   toggleRole: () => {},
   login: () => {},
+  loginWithCredentials: async () => ({ success: true, role: "CLIENT", profileCompleted: true }),
+  devQuickLogin: async () => {},
+  signupWithCredentials: async () => {},
   logout: () => {},
-  register: async () => DEFAULT_SEED_PERSONAS[0],
   refreshBootstrap: async () => {},
   loading: false,
 });
@@ -281,21 +168,31 @@ export function PersonaProvider({ children }: { children: React.ReactNode }) {
 
   const refreshBootstrap = useCallback(async () => {
     try {
+      // 1. Fetch bootstrap configuration & personas
       const res = await fetch("/api/bootstrap", { cache: "no-store" });
-      if (!res.ok) return;
-      const data = await res.json();
-      if (data.config) setConfig(data.config);
-      if (Array.isArray(data.personas) && data.personas.length > 0) {
-        setPersonas((prev) => {
-          const fetchedIds = new Set(data.personas.map((p: PersonaUserDTO) => p.id));
-          const customLocalUsers = prev.filter(
-            (p) => !fetchedIds.has(p.id) && p.id.startsWith("user_client_") || p.id.startsWith("user_builder_") || p.id.startsWith("user_dual_")
-          );
-          return [...data.personas, ...customLocalUsers];
-        });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.config) setConfig(data.config);
+        if (Array.isArray(data.personas) && data.personas.length > 0) {
+          setPersonas(data.personas);
+        }
+        if (Array.isArray(data.clearedCrewPool)) {
+          setClearedCrewPool(data.clearedCrewPool);
+        }
       }
-      if (Array.isArray(data.clearedCrewPool)) {
-        setClearedCrewPool(data.clearedCrewPool);
+
+      // 2. Fetch authenticated session user from cookie if available
+      const meRes = await fetch("/api/auth/me", { cache: "no-store" });
+      if (meRes.ok) {
+        const meData = await meRes.json();
+        if (meData.authenticated && meData.user) {
+          setSelectedId(meData.user.id);
+          if (typeof window !== "undefined") {
+            localStorage.setItem(STORAGE_PERSONA_KEY, meData.user.id);
+          }
+          const role = meData.user.role === "WORKER" ? "BUILDER" : meData.user.role === "ADMIN" ? "ADMIN" : "CLIENT";
+          setActiveRoleState(role);
+        }
       }
     } catch (err) {
       console.error("Bootstrap fetch error:", err);
@@ -367,69 +264,67 @@ export function PersonaProvider({ children }: { children: React.ReactNode }) {
     setActiveRole(targetRole);
   };
 
-  const logout = () => {
+  const loginWithCredentials = async (identifier: string, password: string) => {
+    const res = await fetch("/api/auth/login", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ identifier, password }),
+    });
+
+    const data = await res.json();
+    if (!res.ok) {
+      throw new Error(data.error || "Login failed");
+    }
+
+    login(data.user.id, data.user.role === "WORKER" ? "BUILDER" : data.user.role === "ADMIN" ? "ADMIN" : "CLIENT");
+    await refreshBootstrap();
+
+    return {
+      success: true,
+      role: data.user.role,
+      profileCompleted: Boolean(data.user.profileCompleted),
+    };
+  };
+
+  const devQuickLogin = async (userId: string, role?: PersonaRole) => {
+    const matched = personas.find((p) => p.id === userId);
+    const identifier = matched?.phone || userId;
+    await loginWithCredentials(identifier, "BuildSafe2026!");
+    if (role) {
+      setActiveRole(role);
+    }
+  };
+
+  const signupWithCredentials = async (data: SignupCredentialsData) => {
+    const res = await fetch("/api/auth/signup", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(data),
+    });
+
+    const body = await res.json();
+    if (!res.ok) {
+      throw new Error(body.error || "Registration failed");
+    }
+
+    login(body.user.id, data.accountType === "BUILDER" ? "BUILDER" : "CLIENT");
+    await refreshBootstrap();
+    return body;
+  };
+
+  const logout = async () => {
+    try {
+      await fetch("/api/auth/logout", { method: "POST" });
+    } catch (e) {
+      // ignore
+    }
     setSelectedId(null);
     setActiveRole("CLIENT");
     if (typeof window !== "undefined") {
       localStorage.removeItem(STORAGE_PERSONA_KEY);
       localStorage.removeItem(STORAGE_ROLE_KEY);
+      window.location.href = "/login";
     }
-  };
-
-  const register = async (data: RegisterUserData): Promise<PersonaUserDTO> => {
-    const isDual = data.rolePreference === "DUAL";
-    const isWorker = data.rolePreference === "BUILDER" || isDual;
-    const prefix = isDual ? "user_dual_" : data.rolePreference === "BUILDER" ? "user_builder_" : "user_client_";
-    const newId = `${prefix}${Date.now()}`;
-    const initials = data.name
-      .split(" ")
-      .map((n) => n[0])
-      .join("")
-      .slice(0, 2)
-      .toUpperCase();
-
-    const workerProfile: WorkerProfileDTO | null = isWorker
-      ? {
-          id: `wp_${newId}`,
-          userId: newId,
-          roleInCompany: "INDEPENDENT_ARTISAN",
-          vettingTier: "TIER_1_BROWSE_ONLY",
-          saIdMasked: "920101*****089",
-          citizenshipStatus: "SA_CITIZEN",
-          selfieVerified: false,
-          popiaConsentSigned: true,
-          huruFeePaid: false,
-          sapsStatus: "UNSTARTED",
-          tradesJson: JSON.stringify(data.trade ? [data.trade] : ["GENERAL_BUILDING"]),
-          nearestHardwareHub: `Builders Warehouse (${data.suburb})`,
-          yearsExperience: 3,
-          bio: `Registered artisan providing professional ${data.trade || "contracting"} services.`,
-          walletBalanceZar: 0,
-          totalPaidOutZar: 0,
-          completedJobsCount: 0,
-          certifications: [],
-        }
-      : null;
-
-    const newUser: PersonaUserDTO = {
-      id: newId,
-      name: data.name,
-      phone: data.phone,
-      email: data.email || null,
-      role: isDual ? "DUAL" : data.rolePreference === "BUILDER" ? "WORKER" : "HOMEOWNER",
-      suburb: data.suburb,
-      city: data.city || "Johannesburg",
-      avatarUrl: initials || "BS",
-      ratingAvg: 5.0,
-      ratingCount: 0,
-      postedJobsCount: 0,
-      isDualRole: isDual,
-      workerProfile,
-    };
-
-    setPersonas((prev) => [newUser, ...prev]);
-    login(newUser.id, data.rolePreference === "BUILDER" ? "BUILDER" : "CLIENT");
-    return newUser;
   };
 
   return (
@@ -446,8 +341,10 @@ export function PersonaProvider({ children }: { children: React.ReactNode }) {
         setActiveRole,
         toggleRole,
         login,
+        loginWithCredentials,
+        devQuickLogin,
+        signupWithCredentials,
         logout,
-        register,
         refreshBootstrap,
         loading,
       }}
@@ -460,4 +357,3 @@ export function PersonaProvider({ children }: { children: React.ReactNode }) {
 export function usePersona() {
   return useContext(PersonaContext);
 }
-

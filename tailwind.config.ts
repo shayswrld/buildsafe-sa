@@ -2,7 +2,6 @@ import type { Config } from "tailwindcss";
 
 const config: Config = {
   content: [
-    "./src/pages/**/*.{js,ts,jsx,tsx,mdx}",
     "./src/components/**/*.{js,ts,jsx,tsx,mdx}",
     "./src/app/**/*.{js,ts,jsx,tsx,mdx}",
   ],
@@ -63,23 +62,6 @@ const config: Config = {
           700: "#B45309",
           800: "#92400E",
           900: "#78350F",
-        },
-        // Backward compatibility mappings
-        brand: {
-          50: "#FDF5F2",
-          100: "#FBECE6",
-          500: "#DC4A22",
-          600: "#B93815",
-          700: "#9C2A10",
-          800: "#7E230E",
-          900: "#681E0C",
-        },
-        amberHub: {
-          50: "#FFFBEB",
-          100: "#FEF3C7",
-          500: "#F59E0B",
-          600: "#D97706",
-          700: "#B45309",
         },
       },
       boxShadow: {

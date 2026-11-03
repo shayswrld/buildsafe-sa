@@ -3,7 +3,6 @@
 import React, { useEffect, useState } from "react";
 import Link from "next/link";
 import {
-  ShieldCheck,
   ShieldAlert,
   Star,
   MapPin,
@@ -12,9 +11,6 @@ import {
   Plus,
   Key,
   Users,
-  CheckCircle2,
-  AlertCircle,
-  HelpCircle,
 } from "lucide-react";
 import { usePersona } from "@/components/PersonaContext";
 import { formatZar } from "@/lib/config";
@@ -72,25 +68,18 @@ interface ClientJobItemDTO {
   gateVisits?: GateVisitItemDTO[];
 }
 
+const STATUS_BADGE_MAP: Record<string, string> = {
+  OPEN: "bg-emerald-100 text-emerald-950",
+  QUOTED: "bg-blue-100 text-blue-950",
+  ESCROW_FUNDED: "bg-amber-200 text-amber-950",
+  WORKER_ON_SITE: "bg-purple-100 text-purple-950",
+  WORK_SUBMITTED: "bg-indigo-100 text-indigo-950",
+  COMPLETED: "bg-mortar-300 text-iron-950",
+  DISPUTED: "bg-rose-200 text-rose-950",
+};
+
 function statusBadgeClasses(status: string) {
-  switch (status) {
-    case "OPEN":
-      return "border-2 border-iron-950 bg-emerald-100 text-emerald-950";
-    case "QUOTED":
-      return "border-2 border-iron-950 bg-blue-100 text-blue-950";
-    case "ESCROW_FUNDED":
-      return "border-2 border-iron-950 bg-amber-200 text-amber-950";
-    case "WORKER_ON_SITE":
-      return "border-2 border-iron-950 bg-purple-100 text-purple-950";
-    case "WORK_SUBMITTED":
-      return "border-2 border-iron-950 bg-indigo-100 text-indigo-950";
-    case "COMPLETED":
-      return "border-2 border-iron-950 bg-mortar-300 text-iron-950";
-    case "DISPUTED":
-      return "border-2 border-iron-950 bg-rose-200 text-rose-950";
-    default:
-      return "border-2 border-iron-950 bg-mortar-200 text-iron-950";
-  }
+  return `border-2 border-iron-950 ${STATUS_BADGE_MAP[status] ?? "bg-mortar-200 text-iron-950"}`;
 }
 
 export default function ClientDashboardPage() {
@@ -111,10 +100,15 @@ export default function ClientDashboardPage() {
   useEffect(() => {
     if (!activeClient) return;
     setLoading(true);
+    let isMounted = true;
     fetch(`/api/jobs?homeownerId=${activeClient.id}`, { cache: "no-store" })
-      .then((res) => res.json())
+      .then(async (res) => {
+        if (!res.ok) return { jobs: [] };
+        const text = await res.text();
+        return text ? JSON.parse(text) : { jobs: [] };
+      })
       .then((data) => {
-        if (Array.isArray(data.jobs)) {
+        if (isMounted && data && Array.isArray(data.jobs)) {
           // Double-check client-side filtering by homeownerId
           const clientOwned = data.jobs.filter(
             (j: ClientJobItemDTO) => j.homeownerId === activeClient.id
@@ -125,7 +119,13 @@ export default function ClientDashboardPage() {
       .catch((err) => {
         console.error("Failed to load client jobs:", err);
       })
-      .finally(() => setLoading(false));
+      .finally(() => {
+        if (isMounted) setLoading(false);
+      });
+
+    return () => {
+      isMounted = false;
+    };
   }, [activeClient?.id]);
 
   if (!activeClient) {

@@ -26,8 +26,45 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en">
-      <body className="min-h-screen flex flex-col bg-mortar-100 text-iron-950 font-sans antialiased selection:bg-brick-600 selection:text-white">
+    <html lang="en" suppressHydrationWarning>
+      <head>
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `
+              (function() {
+                try {
+                  var clean = function() {
+                    var els = document.querySelectorAll('[fdprocessedid]');
+                    for (var i = 0; i < els.length; i++) {
+                      els[i].removeAttribute('fdprocessedid');
+                    }
+                  };
+                  clean();
+                  if (typeof MutationObserver !== 'undefined' && document.documentElement) {
+                    var observer = new MutationObserver(function(mutations) {
+                      for (var i = 0; i < mutations.length; i++) {
+                        var m = mutations[i];
+                        if (m.type === 'attributes' && m.attributeName === 'fdprocessedid' && m.target && m.target.removeAttribute) {
+                          m.target.removeAttribute('fdprocessedid');
+                        }
+                      }
+                    });
+                    observer.observe(document.documentElement, {
+                      attributes: true,
+                      subtree: true,
+                      attributeFilter: ['fdprocessedid'],
+                    });
+                    setTimeout(function() {
+                      observer.disconnect();
+                    }, 5000);
+                  }
+                } catch (e) {}
+              })();
+            `,
+          }}
+        />
+      </head>
+      <body suppressHydrationWarning className="min-h-screen flex flex-col bg-mortar-100 text-iron-950 font-sans antialiased selection:bg-brick-600 selection:text-white">
         <PersonaProvider>
           <Navbar />
           <main className="flex-1">{children}</main>

@@ -38,25 +38,18 @@ interface JobSummaryDTO {
   milestones: { id: string; status: string }[];
 }
 
+const STATUS_BADGE_MAP: Record<string, string> = {
+  OPEN: "bg-emerald-100 text-emerald-950",
+  QUOTED: "bg-blue-100 text-blue-950",
+  ESCROW_FUNDED: "bg-amber-200 text-amber-950",
+  WORKER_ON_SITE: "bg-purple-100 text-purple-950",
+  WORK_SUBMITTED: "bg-indigo-100 text-indigo-950",
+  COMPLETED: "bg-mortar-300 text-iron-950",
+  DISPUTED: "bg-rose-200 text-rose-950",
+};
+
 function statusBadgeClasses(status: string) {
-  switch (status) {
-    case "OPEN":
-      return "border-2 border-iron-950 bg-emerald-100 text-emerald-950";
-    case "QUOTED":
-      return "border-2 border-iron-950 bg-blue-100 text-blue-950";
-    case "ESCROW_FUNDED":
-      return "border-2 border-iron-950 bg-amber-200 text-amber-950";
-    case "WORKER_ON_SITE":
-      return "border-2 border-iron-950 bg-purple-100 text-purple-950";
-    case "WORK_SUBMITTED":
-      return "border-2 border-iron-950 bg-indigo-100 text-indigo-950";
-    case "COMPLETED":
-      return "border-2 border-iron-950 bg-mortar-300 text-iron-950";
-    case "DISPUTED":
-      return "border-2 border-iron-950 bg-rose-200 text-rose-950";
-    default:
-      return "border-2 border-iron-950 bg-mortar-200 text-iron-950";
-  }
+  return `border-2 border-iron-950 ${STATUS_BADGE_MAP[status] ?? "bg-mortar-200 text-iron-950"}`;
 }
 
 export default function JobsListPage() {
@@ -66,12 +59,28 @@ export default function JobsListPage() {
   const [loading, setLoading] = useState<boolean>(true);
 
   useEffect(() => {
+    let isMounted = true;
     fetch("/api/jobs", { cache: "no-store" })
-      .then((r) => r.json())
-      .then((d) => {
-        if (Array.isArray(d.jobs)) setJobs(d.jobs);
+      .then(async (r) => {
+        if (!r.ok) {
+          throw new Error(`Failed to fetch jobs (HTTP ${r.status})`);
+        }
+        const text = await r.text();
+        return text ? JSON.parse(text) : { jobs: [] };
       })
-      .finally(() => setLoading(false));
+      .then((d) => {
+        if (isMounted && d && Array.isArray(d.jobs)) setJobs(d.jobs);
+      })
+      .catch((err) => {
+        console.error("Jobs page fetch error:", err);
+      })
+      .finally(() => {
+        if (isMounted) setLoading(false);
+      });
+
+    return () => {
+      isMounted = false;
+    };
   }, []);
 
   const filtered = jobs.filter(

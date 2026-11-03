@@ -1,14 +1,14 @@
 import crypto from "crypto";
 import { validateSouthAfricanId, SaIdValidationResult } from "@/lib/security/sa-id";
 
-export interface HuruVoucherResult {
+interface HuruVoucherResult {
   voucherCode: string;
   capturePartnerInstructions: string;
   feeZar: number;
   providerName?: string;
 }
 
-export interface SapsWebhookResult {
+interface SapsWebhookResult {
   sapsStatus: "CLEARED" | "FLAGGED_RECORD";
   sapsCertificateRef: string | null;
   sapsClearedAt: Date | null;
@@ -18,14 +18,14 @@ export interface SapsWebhookResult {
   providerName?: string;
 }
 
-export interface DhaIdentityVerificationInput {
+interface DhaIdentityVerificationInput {
   saIdNumber: string;
   fullName: string;
   selfieConfirmed: boolean;
   referenceYear?: number;
 }
 
-export interface DhaIdentityVerificationResult {
+interface DhaIdentityVerificationResult {
   verified: boolean;
   providerName: string;
   providerRef: string | null;
@@ -35,7 +35,7 @@ export interface DhaIdentityVerificationResult {
   error?: string;
 }
 
-export interface CipcVerificationInput {
+interface CipcVerificationInput {
   cipcNumber: string;
   companyName: string;
   directorSaIdHash: string;
@@ -43,7 +43,7 @@ export interface CipcVerificationInput {
   nhbrcNumber?: string;
 }
 
-export interface CipcVerificationResult {
+interface CipcVerificationResult {
   valid: boolean;
   normalizedCipcNumber: string;
   companyStatus: "VERIFIED_IN_BUSINESS" | "DISSOLVED_OR_INVALID";
@@ -54,13 +54,13 @@ export interface CipcVerificationResult {
   error?: string;
 }
 
-export interface TradeRegistryValidationInput {
+interface TradeRegistryValidationInput {
   body: string; // PIRB | ECB_WIREMAN | NHBRC | SAQCC_GAS | CIDB
   registrationNumber: string;
   tradeCategory: string;
 }
 
-export interface TradeRegistryValidationResult {
+interface TradeRegistryValidationResult {
   valid: boolean;
   normalizedRegNumber: string;
   body: string;
@@ -73,7 +73,7 @@ export interface TradeRegistryValidationResult {
 /**
  * 1. Pluggable Identity & Biometric Verification Provider (DHA NPR + Facial Liveness)
  */
-export interface IdentityVerificationProvider {
+interface IdentityVerificationProvider {
   readonly providerId: string;
   verifyIdentityAndBiometrics(
     input: DhaIdentityVerificationInput
@@ -83,7 +83,7 @@ export interface IdentityVerificationProvider {
 /**
  * 2. Pluggable Criminal Record & Biometric Fingerprint Screening Provider (AFISwitch / SAPS CRC)
  */
-export interface CriminalScreeningProvider {
+interface CriminalScreeningProvider {
   readonly providerId: string;
   generateFingerprintVoucher(feeZar?: number): HuruVoucherResult;
   simulateAfiswitchResult(simulateOutcome: "CLEAR" | "FLAGGED"): SapsWebhookResult;
@@ -92,7 +92,7 @@ export interface CriminalScreeningProvider {
 /**
  * 3. Pluggable Business (CIPC) & Statutory Trade Registry Provider (PIRB, NHBRC, CIDB, DoEL, SAQCC)
  */
-export interface BusinessAndRegistryProvider {
+interface BusinessAndRegistryProvider {
   readonly providerId: string;
   verifyCipcCompany(input: CipcVerificationInput): Promise<CipcVerificationResult>;
   validateTradeRegistration(
@@ -402,7 +402,7 @@ export class SouthAfricanStatutoryRegistryAdapter implements BusinessAndRegistry
   }
 }
 
-export interface VettingAdapterSuite {
+interface VettingAdapterSuite {
   identity: IdentityVerificationProvider;
   criminal: CriminalScreeningProvider;
   registry: BusinessAndRegistryProvider;

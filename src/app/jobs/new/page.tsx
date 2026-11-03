@@ -12,7 +12,6 @@ import {
   AlertCircle,
   Users,
   Calculator,
-  Percent,
 } from "lucide-react";
 import {
   SA_LOCATIONS,

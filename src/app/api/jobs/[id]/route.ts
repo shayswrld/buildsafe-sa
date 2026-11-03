@@ -5,10 +5,11 @@ export async function GET(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const { id } = await params;
-  const viewerId = req.nextUrl.searchParams.get("viewerId") ?? "";
+  try {
+    const { id } = await params;
+    const viewerId = req.nextUrl.searchParams.get("viewerId") ?? "";
 
-  const job = await prisma.job.findUnique({
+    const job = await prisma.job.findUnique({
     where: { id },
     include: {
       homeowner: {
@@ -110,4 +111,11 @@ export async function GET(
       },
     },
   });
+  } catch (err) {
+    console.error("Failed to fetch job details:", err);
+    return NextResponse.json(
+      { error: "Failed to load job details." },
+      { status: 500 }
+    );
+  }
 }

@@ -40,7 +40,7 @@ export interface ExistingWorkerIdentitySnapshot {
   };
 }
 
-export interface GateArrivalManifestCheckInput {
+interface GateArrivalManifestCheckInput {
   faceMatchConfirmed: boolean;
   expectedCrewProfileIds: string[];
   verifiedCrewProfileIds?: string[];
@@ -51,7 +51,7 @@ export interface GateArrivalManifestCheckInput {
 /**
  * Checks whether a timestamp (Date or ISO string) is expired relative to `referenceDate`.
  */
-export function isClearanceExpired(
+function isClearanceExpired(
   expiresAt?: Date | string | null,
   referenceDate: Date = new Date()
 ): boolean {

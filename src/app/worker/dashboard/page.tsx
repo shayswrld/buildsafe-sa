@@ -22,6 +22,7 @@ import {
   FileCheck2,
 } from "lucide-react";
 import { usePersona } from "@/components/PersonaContext";
+import { DEFAULT_SEED_PERSONAS } from "@/lib/seed-personas";
 import {
   formatZar,
   TRADE_CATEGORIES,
@@ -78,15 +79,31 @@ export default function WorkerDashboardPage() {
   const [selectedUrgencyFilter, setSelectedUrgencyFilter] = useState("ALL");
 
   useEffect(() => {
+    let isMounted = true;
     fetch("/api/jobs", { cache: "no-store" })
-      .then((r) => r.json())
+      .then(async (r) => {
+        if (!r.ok) {
+          throw new Error(`Failed to fetch jobs (HTTP ${r.status})`);
+        }
+        const text = await r.text();
+        return text ? JSON.parse(text) : { jobs: [] };
+      })
       .then((d) => {
-        if (Array.isArray(d.jobs)) {
+        if (isMounted && d && Array.isArray(d.jobs)) {
           setJobs(d.jobs);
         }
+      })
+      .catch((err) => {
+        console.warn("WorkerDashboard jobs fetch note:", err);
       });
+
+    return () => {
+      isMounted = false;
+    };
   }, []);
 
+  const fallbackWorker =
+    DEFAULT_SEED_PERSONAS.find((p) => p.workerProfile) || DEFAULT_SEED_PERSONAS[1];
   const workerPersonas = personas.filter(
     (p) => p.role === "WORKER" || p.workerProfile
   );
@@ -94,8 +111,8 @@ export default function WorkerDashboardPage() {
     (currentUser?.role === "WORKER" || currentUser?.isDualRole) &&
     currentUser.workerProfile
       ? currentUser
-      : workerPersonas[0];
-  const wp = activeWorker?.workerProfile;
+      : (workerPersonas[0] || fallbackWorker);
+  const wp = activeWorker?.workerProfile || fallbackWorker.workerProfile!;
 
   const activeTrades = useMemo(() => {
     if (!wp?.tradesJson) return ["PAINTING"];
@@ -119,20 +136,25 @@ export default function WorkerDashboardPage() {
 
   const handleFastPayout = async () => {
     if (!wp) return;
-    const res = await fetch("/api/worker/vetting", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        action: "PAYOUT_WALLET",
-        workerProfileId: wp.id,
-      }),
-    });
-    const data = await res.json();
-    if (res.ok) {
-      setPayoutNotice(
-        `Paid out ${formatZar(data.paidOutZar)} to ${activeWorker.name}.`
-      );
-      await refreshBootstrap();
+    try {
+      const res = await fetch("/api/worker/vetting", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "PAYOUT_WALLET",
+          workerProfileId: wp.id,
+        }),
+      });
+      const text = await res.text();
+      const data = text ? JSON.parse(text) : {};
+      if (res.ok) {
+        setPayoutNotice(
+          `Paid out ${formatZar(data.paidOutZar)} to ${activeWorker.name}.`
+        );
+        await refreshBootstrap();
+      }
+    } catch (err) {
+      console.error("Fast payout error:", err);
     }
   };
 
@@ -180,7 +202,13 @@ export default function WorkerDashboardPage() {
         }),
       });
 
-      const data = await res.json();
+      const text = await res.text();
+      let data: any = {};
+      try {
+        data = text ? JSON.parse(text) : {};
+      } catch {
+        // non-JSON response fallback
+      }
       if (!res.ok) {
         throw new Error(data.error || "Failed to update profile skills.");
       }

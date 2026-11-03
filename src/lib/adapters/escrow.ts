@@ -1,13 +1,13 @@
 import { DEFAULT_PLATFORM_CONFIG, FeeConfig } from "@/lib/config";
 
-export interface EscrowCalculationInput {
+interface EscrowCalculationInput {
   labourZar: number;
   materialsZar?: number;
   isRepeatBooking?: boolean;
   config?: Partial<FeeConfig>;
 }
 
-export interface EscrowSplitBreakdown {
+interface EscrowSplitBreakdown {
   labourZar: number;
   materialsZar: number;
   buyerTrustFeePct: number;
@@ -70,21 +70,13 @@ export function computeEscrowSplit(
   };
 }
 
-export interface EscrowProviderDepositResult {
-  providerRef: string;
-  escrowAccountLabel: string;
-  settledImmediately: boolean;
-}
-
-export class SimulatedTradeSafeAdapter {
-  createProtectedDeposit(paymentMethod: string): EscrowProviderDepositResult {
+export const escrowAdapter = {
+  createProtectedDeposit(paymentMethod: string) {
     const suffix = Math.floor(100000 + Math.random() * 900000);
     return {
       providerRef: `TS-ZA-${suffix}`,
       escrowAccountLabel: `TradeSafe Regulated Trust (${paymentMethod})`,
       settledImmediately: true,
     };
-  }
-}
-
-export const escrowAdapter = new SimulatedTradeSafeAdapter();
+  },
+};
