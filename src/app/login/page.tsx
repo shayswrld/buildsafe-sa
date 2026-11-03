@@ -95,7 +95,7 @@ function LoginForm() {
             Sign In to BuildSafe SA
           </h1>
           <p className="mt-2 text-sm font-mono text-iron-700">
-            Secure, role-segregated marketplace protected by signed HTTP-only sessions, South African statutory escrow, and biometric SAPS vetting.
+            Secure, role-segregated marketplace protected by signed HTTP-only sessions, Milestone Vault guarantees, and biometric SAPS vetting.
           </p>
         </div>
 
@@ -229,7 +229,7 @@ function LoginForm() {
                   Lerato Mokoena
                 </h3>
                 <p className="text-xs font-mono text-iron-700 mt-1">
-                  Homeowner managing residential renovation projects, funding escrow milestones, and generating estate gate OTPs.
+                  Homeowner managing residential renovation projects, funding protected milestones in the vault, and generating estate gate OTPs.
                 </p>
                 <div className="mt-2 text-[10px] font-mono text-iron-600">
                   Phone: <span className="font-bold text-iron-950">+27825551020</span>

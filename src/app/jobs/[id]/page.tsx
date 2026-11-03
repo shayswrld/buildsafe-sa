@@ -317,13 +317,13 @@ export default function JobWorkspacePage() {
     });
     const data = await res.json();
     if (!res.ok) {
-      setBanner({ type: "err", text: data.error || "Failed to fund Escrow." });
+      setBanner({ type: "err", text: data.error || "Failed to secure funds in Vault." });
       return;
     }
     setOtpInput(data.gateCheckInCode || "");
     setBanner({
       type: "ok",
-      text: `Escrow funded. Gate OTP (${data.gateCheckInCode}) & Crew Pass issued.`,
+      text: `Funds secured in Vault. Gate OTP (${data.gateCheckInCode}) & Crew Pass issued.`,
     });
     setActiveTab("gate");
     setUserSelectedTab(true);
@@ -372,7 +372,7 @@ export default function JobWorkspacePage() {
     if (res.ok) {
       setBanner({
         type: "warn",
-        text: "SAFETY FREEZE: Job frozen, Escrow locked, Admin alerted.",
+        text: "SAFETY FREEZE: Job frozen, Vault locked, Admin alerted.",
       });
       await loadJob();
     }
@@ -390,12 +390,10 @@ export default function JobWorkspacePage() {
       setBanner({ type: "err", text: data.error || "Milestone update failed." });
       return;
     }
-    if (payload.action === "RELEASE_ESCROW") {
+    if (payload.action === "APPROVE_PAYOUT" || payload.action === "RELEASE_ESCROW") {
       setBanner({
         type: "ok",
-        text: `Escrow Released: ${formatZar(data.workerNetPayoutZar)} to Artisan, ${formatZar(
-          data.platformTotalCutZar
-        )} to Platform.`,
+        text: `Funds Paid Out: ${formatZar(data.workerNetPayoutZar)} disbursed to artisan.`,
       });
       await refreshBootstrap();
       setActiveTab("ratings");
@@ -713,7 +711,7 @@ export default function JobWorkspacePage() {
 
             {job.milestones.length === 0 ? (
               <div className="border-2 border-dashed border-iron-950 p-6 text-center bg-mortar-50 font-mono text-xs text-iron-600">
-                No milestones yet. Accept a quote in Tab 03 to start escrow.
+                No milestones yet. Accept a quote in Tab 03 to secure milestone funds in the vault.
               </div>
             ) : (
               <div className="space-y-3">
@@ -934,13 +932,13 @@ export default function JobWorkspacePage() {
                             type="button"
                             onClick={() =>
                               handleMilestoneAction({
-                                action: "RELEASE_ESCROW",
+                                action: "APPROVE_PAYOUT",
                                 milestoneId: ms.id,
                               })
                             }
                             className="brutal-btn brutal-btn-primary px-4 py-2 text-xs"
                           >
-                            APPROVE &amp; RELEASE{" "}
+                            APPROVE &amp; PAYOUT{" "}
                             {formatZar(tx?.workerNetPayoutZar ?? preview.workerNetPayoutZar)}
                           </button>
                         )}

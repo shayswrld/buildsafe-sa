@@ -28,7 +28,7 @@ export default function AboutPage() {
           </h1>
           <p className="text-sm sm:text-base text-iron-800 leading-relaxed max-w-2xl">
             {config.platformName} replaces risky cash deposits and unvetted roadside hires with biometric SAPS clearance,
-            whole-crew Gate OTPs, and regulated milestone escrow.
+            whole-crew Gate OTPs, and protected Milestone Vault guarantees.
           </p>
         </div>
       </section>
@@ -60,7 +60,7 @@ export default function AboutPage() {
 
           <div className="border-2 border-iron-950 bg-white p-5 shadow-brutal rounded-none space-y-3">
             <div className="flex items-center justify-between border-b-2 border-iron-950 pb-2">
-              <span className="font-mono text-xs font-bold text-brick-600 uppercase">// 03 · MILESTONE ESCROW</span>
+              <span className="font-mono text-xs font-bold text-brick-600 uppercase">// 03 · MILESTONE VAULT</span>
               <Lock className="w-5 h-5 text-iron-950" />
             </div>
             <p className="text-xs text-iron-800 leading-relaxed">

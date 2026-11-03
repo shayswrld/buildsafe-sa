@@ -1,0 +1,34 @@
+# Drift Detection Report (2026-11-03)
+
+## docs/designs/client_first_landing_and_artisan_canvas.md
+
+* **Page Component Architecture (`src/app/page.tsx`)**: The design specifies `HomePage` as a Server Component for optimal LCP with client-side interactivity isolated strictly to `<ArtisanCanvas />`. In reality, `src/app/page.tsx` is implemented as a Client Component (`"use client"`) using `useState` for the collapsible escrow calculator drawer.
+* **Artisan Vignette Count & Trades (`src/components/animations/ArtisanCanvas.tsx`)**: The design specifies exactly three vignettes across three trades (Carpentry on top-left, Masonry on bottom-right, and Tiling on bottom-left). In reality, the codebase implements four vignettes, adding a certified ECB Wireman electrical diagnostic vignette on the top-right.
+* **Canvas ViewBox & Layout (`src/components/animations/ArtisanCanvas.tsx`)**: The design specifies fixed `viewBox="0 0 120 120"` SVGs positioned inside fixed viewport quadrant containers (`top-8 left-8 hidden lg:block`, `bottom-10 right-8 hidden md:block`, `bottom-8 left-12 hidden lg:block`). In reality, each vignette uses `viewBox="0 0 320 220"`, is placed in an `absolute inset-0` document-flow container with dynamic `requestAnimationFrame` scroll parallax (`translateY`), and is distributed across vertical page sections.
+* **Viewport Height Media Query (`src/app/globals.css`)**: The design specifies an explicit CSS rule `@media (max-height: 700px) { .artisan-vignette { display: none; } }` to hide vignettes on short screens. In reality, this media query is absent from `globals.css` (visibility is controlled via Tailwind `hidden md:block`).
+* **Unauthenticated Navbar Links (`src/components/Navbar.tsx`)**: The design specifies that the unauthenticated visitor navbar renders only the brand logo on the left, and an `About Us` link plus `Log In` button on the right. In reality, `Navbar.tsx` additionally renders a `Browse Trades` (`/jobs`) navigation link for unauthenticated visitors.
+* **Authenticated Navbar Role Badges & Switchers (`src/components/Navbar.tsx`)**: The design specifies removing the `CLIENT VIEW` badge and suppressing persona switchers from the top navbar. In reality, `Navbar.tsx` still renders a `CLIENT VIEW` / `BUILDER VIEW` badge (lines 187–200) and an active dual-role toggle button (`Switch to Builder` / `Switch to Client`, lines 203–213) when `currentUser` is present.
+* **Brand Lead Descriptor Copy (`src/app/page.tsx`)**: The design specifies the hero descriptor text as `"Where Homeowners Meet Vetted Craftspeople. Protected Milestone Escrow. Zero Risk."`. In reality, `src/app/page.tsx` renders `"Where homeowners hire vetted craftspeople with complete milestone security. Every artisan verified with SAPS biometric clearance, verified trade qualifications, and 0% material slip markup."`.
+* **Conversion Telemetry Tracking (`src/app/page.tsx`)**: The design specifies tracking conversion events (`landing_cta_click { target: 'signup' | 'login' | 'public_trades' }`). In reality, no conversion telemetry handlers are attached to the CTA links in `src/app/page.tsx`.
+
+## docs/designs/milestone_vault_and_job_guarantee.md
+
+* **Lazy Check-on-Read Auto-Release Missing (`src/app/api/jobs/[id]/route.ts`)**: The design specifies that auto-release is evaluated lazily whenever milestone details or job lists are fetched (if `status === "INSPECTION_COUNTDOWN_ACTIVE"` and `new Date() >= autoReleaseDeadline`, atomically transition to `PAID_OUT` and disburse payout). In reality, neither `src/app/api/jobs/[id]/route.ts` nor `src/app/api/jobs/route.ts` implements this check-on-read evaluation.
+* **Milestone Funding Status & Response (`src/app/api/jobs/[id]/milestones/route.ts`)**: The design specifies that `action === "FUND_MILESTONE"` transitions the milestone status to `FUNDED_IN_VAULT` and returns `HTTP 200 { "status": "FUNDED_IN_VAULT", "gateOtp": "..." }`. In reality, the route handler sets the status to `"HELD_IN_ESCROW"` (line 97) and responds with `{ success: true, providerRef: deposit.providerRef }` without returning `status: "FUNDED_IN_VAULT"` or `gateOtp`.
+* **Touch-Up Description Length Validation (`src/app/api/jobs/[id]/milestones/route.ts`)**: The design specifies a precondition of `defectDescription.length >= 20` for `action === "REQUEST_TOUCH_UP"`. In reality, the route handler does not validate minimum length and falls back to a default string if empty.
+* **Payout Milestone Status Discrepancy (`src/app/api/jobs/[id]/milestones/route.ts`)**: The design specifies that `action === "APPROVE_PAYOUT"` transitions the milestone status to `PAID_OUT`. In reality, the database record is updated to `status: "RELEASED"` (line 193), returning `status: "PAID_OUT"` only in the JSON response payload.
+* **Legacy "Escrow" Terminology in UI & Components**: The design specifies replacing all user-facing instances of "escrow" across navigation, dashboards, calculators, job views, and status badges with "Milestone Vault" and "Job Guarantee". In reality:
+  * The calculator component file remains named `src/components/EscrowCalculator.tsx`.
+  * `src/app/jobs/[id]/page.tsx` still renders an `[ESCROW & PAYMENTS]` tab, `ESCROW_FUNDED` badges, and `Release Milestone Escrow` buttons.
+  * `src/app/client/dashboard/page.tsx` retains references to `ESCROW` and `HELD_IN_ESCROW` in status filters and badge labels.
+* **1-Tap Blackout Extension Button Missing from UI (`src/app/client/dashboard/page.tsx`, `src/app/jobs/[id]/page.tsx`)**: The design specifies a 1-tap "Request 24h Extension" button on the client dashboard inspection card calling `action: "REQUEST_EXTENSION"`. In reality, this button is absent from the client dashboard and job detail UI components.
+* **Prisma Schema `updatedAt` Field Missing (`prisma/schema.prisma`)**: The design specification declares `updatedAt DateTime @updatedAt` on `model Milestone`. In reality, `model Milestone` in `prisma/schema.prisma` defines `createdAt DateTime @default(now())` but omits `updatedAt`.
+
+## docs/designs/resilient_worker_hub_and_persona_switcher.md
+
+* **Offline Fallback UI Banner Missing (`src/app/worker/dashboard/page.tsx`)**: The design specifies an optional subtle brutalist notice if running in degraded/offline fallback mode: `// OFFLINE PREVIEW MODE · SEED ARTISAN ACTIVE`. In reality, this banner is not rendered in `WorkerDashboardPage`.
+* **Incomplete Database Failure Mock Assertions (`tests/fallback-resilience.test.ts`)**: The design specifies automated test assertions verifying that `/api/bootstrap` returns HTTP 200 with fallback personas when Prisma throws connection errors, and `/api/jobs` returns HTTP 200 with `{ jobs: [] }` when database queries throw. In reality, while route handlers are imported in `tests/fallback-resilience.test.ts`, no tests mocking Prisma exceptions or asserting the HTTP 200 fallback response behavior were authored.
+
+## docs/designs/SITEMAP.md
+
+No drift detected.

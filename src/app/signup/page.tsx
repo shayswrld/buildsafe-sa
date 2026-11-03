@@ -107,7 +107,7 @@ export default function SignupPage() {
                       accountType === "CLIENT" ? "text-mortar-100" : "text-iron-700"
                     }`}
                   >
-                    Post renovation jobs, fund escrow &amp; review contractor quotes.
+                    Post renovation jobs, secure milestone funds &amp; review contractor quotes.
                   </p>
                 </button>
 

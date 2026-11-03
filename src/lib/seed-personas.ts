@@ -1,4 +1,3 @@
-import { DEFAULT_PLATFORM_CONFIG } from "./config";
 
 export interface CertificationDTO {
   id: string;

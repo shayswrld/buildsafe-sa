@@ -42,15 +42,12 @@ export function computeMilestoneSplit(
   const labourZar = Math.max(0, roundZar(input.labourZar));
   const materialsZar = Math.max(0, roundZar(input.materialsZar ?? 0));
 
-  const mergedConfig: FeeConfig = {
-    ...DEFAULT_PLATFORM_CONFIG,
-    ...input.config,
-  };
+  const cfg = { ...DEFAULT_PLATFORM_CONFIG, ...input.config };
 
-  const buyerTrustFeePct = mergedConfig.buyerTrustFeePct;
+  const buyerTrustFeePct = cfg.buyerTrustFeePct;
   const workerCommissionPct = input.isRepeatBooking
-    ? mergedConfig.repeatClientCommissionPct
-    : mergedConfig.workerLabourCommissionPct;
+    ? cfg.repeatClientCommissionPct
+    : cfg.workerLabourCommissionPct;
 
   const buyerTrustFeeZar = roundZar(labourZar * buyerTrustFeePct);
   const grossBuyerPaidZar = roundZar(labourZar + materialsZar + buyerTrustFeeZar);
@@ -88,9 +85,6 @@ export interface AbstractVaultAdapter {
     milestoneId: string,
     idempotencyKey: string
   ): Promise<{ success: boolean; disbursedAt: string }>;
-  getVaultStatus(
-    milestoneId: string
-  ): Promise<{ status: string; balanceZar: number }>;
 }
 
 export const vaultAdapter: AbstractVaultAdapter & {
@@ -109,9 +103,6 @@ export const vaultAdapter: AbstractVaultAdapter & {
   },
   async disbursePayout() {
     return { success: true, disbursedAt: new Date().toISOString() };
-  },
-  async getVaultStatus() {
-    return { status: "SECURED", balanceZar: 3000 };
   },
   createProtectedDeposit(paymentMethod: string) {
     const suffix = Math.floor(100000 + Math.random() * 900000);

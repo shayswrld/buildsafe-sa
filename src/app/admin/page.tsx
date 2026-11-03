@@ -185,7 +185,7 @@ export default function AdminDashboardPage() {
         <div className="border-2 border-iron-950 bg-white text-iron-950 rounded-none p-4 shadow-brutal flex flex-col justify-between">
           <div>
             <div className="font-mono text-xs uppercase text-iron-600 font-bold">
-              ESCROW GMV
+              VAULT GMV
             </div>
             <div className="text-2xl font-black text-iron-950 mt-1 font-mono tabular-nums">
               {formatZar(data.kpis.totalGmvZar)}
